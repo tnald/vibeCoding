@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { Account, Stock, StockQuote, Sector } from "@/types";
+import { formatAsset, formatProfit } from "@/hooks/useCurrencyFormat";
 import AccountSidebar from "@/components/sidebar/AccountSidebar";
 import PortfolioTable from "@/components/portfolio/PortfolioTable";
 import CashPanel from "@/components/portfolio/CashPanel";
-import AssetPieChart from "@/components/charts/AssetPieChart";
 import DashboardHeader from "@/components/dashboard/DashboardHeader";
 import StatCard from "@/components/dashboard/StatCard";
 import EmptyDashboard from "@/components/dashboard/EmptyDashboard";
+import AssetOverviewSection from "@/components/dashboard/AssetOverviewSection";
 
 const USD_TO_KRW = 1380;
 
@@ -17,6 +18,7 @@ export default function HomePage() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [stocks, setStocks] = useState<Stock[]>([]);
   const [quotes] = useState<Record<string, StockQuote>>({});
+  const [displayCurrency, setDisplayCurrency] = useState<"KRW" | "USD">("KRW");
 
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId) ?? null;
   const accountStocks = stocks.filter((s) => s.accountId === selectedAccountId);
@@ -41,27 +43,28 @@ export default function HomePage() {
     );
   };
 
-  const stockValueKRW = accountStocks.reduce((sum, stock) => {
-    const quote = quotes[stock.ticker];
-    const price = quote?.price ?? stock.avgPrice;
-    const value = price * stock.quantity;
-    return sum + (stock.currency === "USD" ? value * USD_TO_KRW : value);
+  // 핵심 집계값 (모두 KRW 기준)
+  const stockValueKRW = accountStocks.reduce((sum, s) => {
+    const price = (quotes[s.ticker]?.price ?? s.avgPrice);
+    return sum + (s.currency === "USD" ? price * s.quantity * USD_TO_KRW : price * s.quantity);
   }, 0);
 
-  const totalProfitKRW = accountStocks.reduce((sum, stock) => {
-    const quote = quotes[stock.ticker];
-    const currentPrice = quote?.price ?? stock.avgPrice;
-    const profit = (currentPrice - stock.avgPrice) * stock.quantity;
-    return sum + (stock.currency === "USD" ? profit * USD_TO_KRW : profit);
+  const totalProfitKRW = accountStocks.reduce((sum, s) => {
+    const cur = quotes[s.ticker]?.price ?? s.avgPrice;
+    const profit = (cur - s.avgPrice) * s.quantity;
+    return sum + (s.currency === "USD" ? profit * USD_TO_KRW : profit);
   }, 0);
 
-  const totalAssetKRW = stockValueKRW +
-    (selectedAccount?.cashKRW ?? 0) +
-    (selectedAccount?.cashUSD ?? 0) * USD_TO_KRW;
+  const investedKRW = accountStocks.reduce((sum, s) => {
+    const val = s.avgPrice * s.quantity;
+    return sum + (s.currency === "USD" ? val * USD_TO_KRW : val);
+  }, 0);
 
-  const profitPercent = stockValueKRW > 0
-    ? (totalProfitKRW / (stockValueKRW - totalProfitKRW)) * 100
-    : 0;
+  const totalAssetKRW =
+    stockValueKRW + (selectedAccount?.cashKRW ?? 0) + (selectedAccount?.cashUSD ?? 0) * USD_TO_KRW;
+
+  const profitPercent = investedKRW > 0 ? (totalProfitKRW / investedKRW) * 100 : 0;
+  const isUp = totalProfitKRW >= 0;
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--background)]">
@@ -76,38 +79,57 @@ export default function HomePage() {
         {!selectedAccount ? (
           <EmptyDashboard />
         ) : (
-          <div className="flex flex-col h-full">
-            {/* 상단 헤더 */}
-            <DashboardHeader account={selectedAccount} />
+          <div className="flex flex-col">
+            {/* 헤더 (통화 토글 포함) */}
+            <DashboardHeader
+              account={selectedAccount}
+              displayCurrency={displayCurrency}
+              onCurrencyToggle={() =>
+                setDisplayCurrency((c) => (c === "KRW" ? "USD" : "KRW"))
+              }
+            />
 
-            {/* 본문 */}
-            <div className="flex-1 px-8 pb-8 space-y-6">
+            <div className="px-8 pb-10 pt-6 space-y-5">
 
-              {/* 요약 스탯 카드 4개 */}
+              {/* ① 전체 자산 오버뷰 (파이 + 선 그래프 포함) */}
+              <AssetOverviewSection
+                account={selectedAccount}
+                stocks={accountStocks}
+                quotes={quotes}
+                stockValueKRW={stockValueKRW}
+                totalProfitKRW={totalProfitKRW}
+                displayCurrency={displayCurrency}
+              />
+
+              {/* ② 요약 스탯 카드 4개 */}
               <div className="grid grid-cols-4 gap-4">
                 <StatCard
                   label="총 자산"
-                  value={`${Math.round(totalAssetKRW).toLocaleString("ko-KR")}원`}
-                  sub="현금 + 주식 합산"
+                  value={formatAsset(totalAssetKRW, displayCurrency)}
+                  sub="현금 + 주식"
                 />
                 <StatCard
                   label="평가손익"
-                  value={`${totalProfitKRW >= 0 ? "+" : ""}${Math.round(totalProfitKRW).toLocaleString("ko-KR")}원`}
+                  value={formatProfit(totalProfitKRW, displayCurrency)}
                   change={profitPercent}
+                  highlight={isUp ? "up" : "down"}
                 />
                 <StatCard
                   label="보유 종목"
                   value={`${accountStocks.length}개`}
-                  sub={`한국 ${accountStocks.filter(s => s.market === "KR").length} · 미국 ${accountStocks.filter(s => s.market === "US").length}`}
+                  sub={`🇰🇷 ${accountStocks.filter((s) => s.market === "KR").length} · 🇺🇸 ${accountStocks.filter((s) => s.market === "US").length}`}
                 />
                 <StatCard
                   label="현금 잔액"
-                  value={`${Math.round(selectedAccount.cashKRW).toLocaleString("ko-KR")}원`}
-                  sub={`$${selectedAccount.cashUSD.toFixed(2)}`}
+                  value={formatAsset(
+                    (selectedAccount.cashKRW) + selectedAccount.cashUSD * USD_TO_KRW,
+                    displayCurrency
+                  )}
+                  sub={`₩${Math.round(selectedAccount.cashKRW).toLocaleString()} · $${selectedAccount.cashUSD.toFixed(2)}`}
                 />
               </div>
 
-              {/* 포트폴리오 테이블 */}
+              {/* ③ 포트폴리오 테이블 */}
               <PortfolioTable
                 account={selectedAccount}
                 stocks={accountStocks}
@@ -118,18 +140,12 @@ export default function HomePage() {
                 onSectorChange={handleSectorChange}
               />
 
-              {/* 하단 패널 */}
-              <div className="grid grid-cols-2 gap-4">
+              {/* ④ 현금 관리 */}
+              <div className="max-w-sm">
                 <CashPanel
                   cashKRW={selectedAccount.cashKRW}
                   cashUSD={selectedAccount.cashUSD}
                   onUpdate={handleCashUpdate}
-                />
-                <AssetPieChart
-                  cashKRW={selectedAccount.cashKRW}
-                  cashUSD={selectedAccount.cashUSD}
-                  stockValueKRW={stockValueKRW}
-                  usdToKrw={USD_TO_KRW}
                 />
               </div>
             </div>
