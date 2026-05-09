@@ -2,11 +2,15 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { TrendingUp, Mail, Lock, Loader2, CheckCircle2 } from "lucide-react";
+import { TrendingUp, User, Lock, Loader2, CheckCircle2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
+function toEmail(id: string) {
+  return `${id.trim()}@portfoliox.app`;
+}
+
 export default function SignupPage() {
-  const [email, setEmail] = useState("");
+  const [id, setId] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -14,6 +18,10 @@ export default function SignupPage() {
 
   const handleSignup = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (id.trim().length < 2) {
+      setError("아이디는 2자 이상이어야 합니다");
+      return;
+    }
     if (password.length < 6) {
       setError("비밀번호는 6자 이상이어야 합니다");
       return;
@@ -22,7 +30,10 @@ export default function SignupPage() {
     setError("");
 
     const sb = createClient();
-    const { error: err } = await sb.auth.signUp({ email, password });
+    const { error: err } = await sb.auth.signUp({
+      email: toEmail(id),
+      password,
+    });
 
     if (err) {
       setError(err.message);
@@ -40,7 +51,7 @@ export default function SignupPage() {
           <CheckCircle2 size={40} className="text-emerald-400 mx-auto mb-3" />
           <h2 className="text-lg font-semibold text-[var(--foreground)] mb-1">가입 완료!</h2>
           <p className="text-sm text-[var(--muted)] mb-4">
-            이메일로 확인 링크가 발송됐습니다.<br />확인 후 로그인해주세요.
+            아이디 <span className="text-[var(--foreground)] font-medium">{id}</span>로 가입됐습니다.
           </p>
           <Link href="/login"
             className="text-sm text-[var(--accent)] hover:underline font-medium">
@@ -65,14 +76,14 @@ export default function SignupPage() {
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6">
           <form onSubmit={handleSignup} className="flex flex-col gap-4">
             <div>
-              <label className="text-xs font-medium text-[var(--muted)] mb-1.5 block">이메일</label>
+              <label className="text-xs font-medium text-[var(--muted)] mb-1.5 block">아이디</label>
               <div className="relative">
-                <Mail size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
+                <User size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com"
+                  type="text"
+                  value={id}
+                  onChange={(e) => setId(e.target.value)}
+                  placeholder="사용할 아이디 입력 (2자 이상)"
                   required
                   autoFocus
                   className="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl

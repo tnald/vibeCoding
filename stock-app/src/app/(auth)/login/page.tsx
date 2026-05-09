@@ -3,12 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { TrendingUp, Mail, Lock, Loader2 } from "lucide-react";
+import { TrendingUp, User, Lock, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+
+function toEmail(id: string) {
+  return `${id.trim()}@portfoliox.app`;
+}
 
 export default function LoginPage() {
   const router = useRouter();
-  const [email, setEmail] = useState("");
+  const [id, setId] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -19,10 +23,13 @@ export default function LoginPage() {
     setError("");
 
     const sb = createClient();
-    const { error: err } = await sb.auth.signInWithPassword({ email, password });
+    const { error: err } = await sb.auth.signInWithPassword({
+      email: toEmail(id),
+      password,
+    });
 
     if (err) {
-      setError("이메일 또는 비밀번호가 올바르지 않습니다");
+      setError("아이디 또는 비밀번호가 올바르지 않습니다");
       setLoading(false);
       return;
     }
@@ -34,7 +41,6 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[var(--background)] flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
-        {/* 로고 */}
         <div className="flex flex-col items-center mb-8">
           <div className="w-12 h-12 rounded-2xl bg-[var(--accent)] flex items-center justify-center mb-3">
             <TrendingUp size={22} className="text-white" />
@@ -43,19 +49,17 @@ export default function LoginPage() {
           <p className="text-sm text-[var(--muted)] mt-1">로그인하여 포트폴리오를 관리하세요</p>
         </div>
 
-        {/* 폼 카드 */}
         <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-6">
           <form onSubmit={handleLogin} className="flex flex-col gap-4">
-
             <div>
-              <label className="text-xs font-medium text-[var(--muted)] mb-1.5 block">이메일</label>
+              <label className="text-xs font-medium text-[var(--muted)] mb-1.5 block">아이디</label>
               <div className="relative">
-                <Mail size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
+                <User size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
                 <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="name@example.com"
+                  type="text"
+                  value={id}
+                  onChange={(e) => setId(e.target.value)}
+                  placeholder="아이디 입력"
                   required
                   autoFocus
                   className="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl
