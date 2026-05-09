@@ -75,7 +75,8 @@ export default function PortfolioTable({
               <th className="text-left py-2.5 px-5 font-medium">종목</th>
               <th className="text-left py-2.5 px-4 font-medium">섹터</th>
               <th className="text-right py-2.5 px-4 font-medium">현재가</th>
-              <th className="text-right py-2.5 px-4 font-medium">수량</th>
+              <th className="text-right py-2.5 px-4 font-medium">수량 / 매수가</th>
+              <th className="text-right py-2.5 px-4 font-medium">평가금액</th>
               <th className="text-right py-2.5 px-4 font-medium">평가손익</th>
               <th className="py-2.5 px-4"></th>
             </tr>
