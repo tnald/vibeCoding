@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Account, Stock, StockQuote, Sector } from "@/types";
+import { StockQuote } from "@/types";
 import { formatAsset, formatProfit } from "@/hooks/useCurrencyFormat";
+import { useAccounts } from "@/hooks/useAccounts";
+import { useStocks } from "@/hooks/useStocks";
 import AccountSidebar from "@/components/sidebar/AccountSidebar";
 import PortfolioTable from "@/components/portfolio/PortfolioTable";
 import CashPanel from "@/components/portfolio/CashPanel";
@@ -14,32 +16,26 @@ import AssetOverviewSection from "@/components/dashboard/AssetOverviewSection";
 const USD_TO_KRW = 1380;
 
 export default function HomePage() {
-  const [accounts, setAccounts] = useState<Account[]>([]);
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
-  const [stocks, setStocks] = useState<Stock[]>([]);
   const [quotes] = useState<Record<string, StockQuote>>({});
   const [displayCurrency, setDisplayCurrency] = useState<"KRW" | "USD">("KRW");
 
-  const selectedAccount = accounts.find((a) => a.id === selectedAccountId) ?? null;
-  const accountStocks = stocks.filter((s) => s.accountId === selectedAccountId);
+  const { accounts, loading: accountsLoading, addAccount, updateCash } = useAccounts();
+  const { stocks: accountStocks, addStock, removeStock, changeSector } = useStocks(selectedAccountId);
 
-  const handleAddAccount = (account: Account) => {
-    setAccounts((prev) => [...prev, account]);
-    if (!selectedAccountId) setSelectedAccountId(account.id);
+  const selectedAccount = accounts.find((a) => a.id === selectedAccountId) ?? null;
+
+  const handleAddAccount = async (account: Omit<typeof accounts[0], "id">) => {
+    const created = await addAccount(account);
+    if (!selectedAccountId) setSelectedAccountId(created.id);
   };
 
-  const handleAddStock = (stock: Stock) => setStocks((prev) => [...prev, stock]);
-  const handleDeleteStock = (id: string) => setStocks((prev) => prev.filter((s) => s.id !== id));
-  const handleSectorChange = (id: string, sector: Sector) =>
-    setStocks((prev) => prev.map((s) => (s.id === id ? { ...s, sector } : s)));
-
-  const handleCashUpdate = (deltaKRW: number, deltaUSD: number) => {
-    setAccounts((prev) =>
-      prev.map((a) =>
-        a.id === selectedAccountId
-          ? { ...a, cashKRW: a.cashKRW + deltaKRW, cashUSD: a.cashUSD + deltaUSD }
-          : a
-      )
+  const handleCashUpdate = async (deltaKRW: number, deltaUSD: number) => {
+    if (!selectedAccount) return;
+    await updateCash(
+      selectedAccount.id,
+      selectedAccount.cashKRW + deltaKRW,
+      selectedAccount.cashUSD + deltaUSD
     );
   };
 
@@ -65,6 +61,17 @@ export default function HomePage() {
 
   const profitPercent = investedKRW > 0 ? (totalProfitKRW / investedKRW) * 100 : 0;
   const isUp = totalProfitKRW >= 0;
+
+  if (accountsLoading) {
+    return (
+      <div className="flex h-screen items-center justify-center bg-[var(--background)]">
+        <div className="flex flex-col items-center gap-3">
+          <div className="w-8 h-8 border-2 border-[var(--accent)] border-t-transparent rounded-full animate-spin" />
+          <p className="text-sm text-[var(--muted)]">데이터 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen overflow-hidden bg-[var(--background)]">
@@ -135,9 +142,9 @@ export default function HomePage() {
                 stocks={accountStocks}
                 quotes={quotes}
                 usdToKrw={USD_TO_KRW}
-                onAddStock={handleAddStock}
-                onDeleteStock={handleDeleteStock}
-                onSectorChange={handleSectorChange}
+                onAddStock={addStock}
+                onDeleteStock={removeStock}
+                onSectorChange={changeSector}
               />
 
               {/* ④ 현금 관리 */}

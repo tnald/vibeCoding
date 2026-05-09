@@ -1,5 +1,8 @@
 "use client";
 
+import { useRouter } from "next/navigation";
+import { LogOut } from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
 import { Account } from "@/types";
 
 interface DashboardHeaderProps {
@@ -13,7 +16,15 @@ export default function DashboardHeader({
   displayCurrency,
   onCurrencyToggle,
 }: DashboardHeaderProps) {
+  const router = useRouter();
   const now = new Date();
+
+  const handleLogout = async () => {
+    const sb = createClient();
+    await sb.auth.signOut();
+    router.push("/login");
+    router.refresh();
+  };
   const dateStr = now.toLocaleDateString("ko-KR", {
     year: "numeric",
     month: "long",
@@ -36,26 +47,37 @@ export default function DashboardHeader({
         <p className="text-xs text-[var(--muted)]">{dateStr}</p>
       </div>
 
-      {/* 우측: 통화 토글 */}
-      <button
-        onClick={onCurrencyToggle}
-        className="flex items-center gap-0.5 bg-[var(--surface-elevated)] border border-[var(--border)]
-          rounded-xl p-1 transition-colors hover:border-[var(--accent)]/40"
-        title="통화 전환"
-      >
-        {(["KRW", "USD"] as const).map((c) => (
-          <span
-            key={c}
-            className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all
-              ${displayCurrency === c
-                ? "bg-[var(--accent)] text-white shadow-sm"
-                : "text-[var(--muted)] hover:text-[var(--foreground)]"
-              }`}
-          >
-            {c === "KRW" ? "₩ 원화" : "$ 달러"}
-          </span>
-        ))}
-      </button>
+      {/* 우측: 통화 토글 + 로그아웃 */}
+      <div className="flex items-center gap-2">
+        <button
+          onClick={onCurrencyToggle}
+          className="flex items-center gap-0.5 bg-[var(--surface-elevated)] border border-[var(--border)]
+            rounded-xl p-1 transition-colors hover:border-[var(--accent)]/40"
+          title="통화 전환"
+        >
+          {(["KRW", "USD"] as const).map((c) => (
+            <span
+              key={c}
+              className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all
+                ${displayCurrency === c
+                  ? "bg-[var(--accent)] text-white shadow-sm"
+                  : "text-[var(--muted)] hover:text-[var(--foreground)]"
+                }`}
+            >
+              {c === "KRW" ? "₩ 원화" : "$ 달러"}
+            </span>
+          ))}
+        </button>
+
+        <button
+          onClick={handleLogout}
+          className="w-8 h-8 flex items-center justify-center rounded-xl text-[var(--muted)]
+            hover:bg-[var(--surface-elevated)] hover:text-red-400 transition-colors"
+          title="로그아웃"
+        >
+          <LogOut size={15} />
+        </button>
+      </div>
     </header>
   );
 }
