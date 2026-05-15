@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { LogOut } from "lucide-react";
+import { LogOut, Sun, Moon } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useTheme } from "@/hooks/useTheme";
 import { Account } from "@/types";
 
 interface DashboardHeaderProps {
@@ -17,6 +18,7 @@ export default function DashboardHeader({
   onCurrencyToggle,
 }: DashboardHeaderProps) {
   const router = useRouter();
+  const { theme, toggleTheme } = useTheme();
   const now = new Date();
 
   const handleLogout = async () => {
@@ -67,6 +69,15 @@ export default function DashboardHeader({
               {c === "KRW" ? "₩ 원화" : "$ 달러"}
             </span>
           ))}
+        </button>
+
+        <button
+          onClick={toggleTheme}
+          className="w-8 h-8 flex items-center justify-center rounded-xl text-[var(--muted)]
+            hover:bg-[var(--surface-elevated)] hover:text-[var(--foreground)] transition-colors"
+          title={theme === "dark" ? "라이트 모드로 전환" : "다크 모드로 전환"}
+        >
+          {theme === "dark" ? <Sun size={15} /> : <Moon size={15} />}
         </button>
 
         <button

@@ -28,8 +28,9 @@ export default function StockReturnChart({ stocks, quotes }: Props) {
     );
   }
 
-  const absMax = Math.max(...data.map((d) => Math.abs(d.return)), 10);
-  const domain: [number, number] = [-absMax * 1.15, absMax * 1.15];
+  const absMax = Math.max(...data.map((d) => Math.abs(d.return)), 5);
+  const pad = absMax * 0.2;
+  const domain: [number, number] = [-(absMax + pad), absMax + pad];
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -42,6 +43,7 @@ export default function StockReturnChart({ stocks, quotes }: Props) {
         <XAxis
           type="number"
           domain={domain}
+          allowDataOverflow={false}
           tickFormatter={(v) => `${v > 0 ? "+" : ""}${v}%`}
           tick={{ fontSize: 10, fill: "var(--muted)" }}
           axisLine={{ stroke: "var(--border-subtle)" }}

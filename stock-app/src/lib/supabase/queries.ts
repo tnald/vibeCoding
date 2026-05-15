@@ -53,6 +53,13 @@ export async function insertAccount(
   };
 }
 
+export async function deleteAccount(id: string): Promise<void> {
+  const sb = createClient();
+  await sb.from("stocks").delete().eq("account_id", id);
+  const { error } = await sb.from("accounts").delete().eq("id", id);
+  if (error) throw error;
+}
+
 export async function updateAccountCash(
   id: string,
   cashKRW: number,

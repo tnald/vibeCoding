@@ -17,7 +17,7 @@ export default function HomePage() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [displayCurrency, setDisplayCurrency] = useState<"KRW" | "USD">("KRW");
 
-  const { accounts, loading: accountsLoading, addAccount, updateCash } = useAccounts();
+  const { accounts, loading: accountsLoading, addAccount, updateCash, deleteAccount } = useAccounts();
   const { stocks: accountStocks, addStock, removeStock } = useStocks(selectedAccountId);
   const { quotes } = useQuotes(accountStocks);
 
@@ -55,6 +55,10 @@ export default function HomePage() {
         selectedId={selectedAccountId}
         onSelect={setSelectedAccountId}
         onAdd={handleAddAccount}
+        onDelete={async (id) => {
+          await deleteAccount(id);
+          if (selectedAccountId === id) setSelectedAccountId(null);
+        }}
       />
 
       <main className="flex-1 overflow-y-auto">

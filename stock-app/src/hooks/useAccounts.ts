@@ -6,6 +6,7 @@ import {
   fetchAccounts,
   insertAccount,
   updateAccountCash,
+  deleteAccount as deleteAccountQuery,
 } from "@/lib/supabase/queries";
 
 export function useAccounts() {
@@ -38,5 +39,10 @@ export function useAccounts() {
     );
   };
 
-  return { accounts, loading, addAccount, updateCash };
+  const deleteAccount = async (id: string) => {
+    await deleteAccountQuery(id);
+    setAccounts((prev) => prev.filter((a) => a.id !== id));
+  };
+
+  return { accounts, loading, addAccount, updateCash, deleteAccount };
 }
