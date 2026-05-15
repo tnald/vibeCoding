@@ -29,8 +29,14 @@ export default function StockReturnChart({ stocks, quotes }: Props) {
   }
 
   const absMax = Math.max(...data.map((d) => Math.abs(d.return)), 5);
-  const pad = absMax * 0.2;
-  const domain: [number, number] = [-(absMax + pad), absMax + pad];
+  // 0이 반드시 포함되는 균등 tick 계산
+  const step = absMax <= 5 ? 1 : absMax <= 10 ? 2 : absMax <= 25 ? 5 : absMax <= 50 ? 10 : 25;
+  const maxTick = Math.ceil(absMax / step) * step;
+  const ticks: number[] = [];
+  for (let t = -maxTick; t <= maxTick; t += step) {
+    ticks.push(Math.round(t * 1000) / 1000);
+  }
+  const domain: [number, number] = [-maxTick, maxTick];
 
   return (
     <ResponsiveContainer width="100%" height="100%">
@@ -43,8 +49,9 @@ export default function StockReturnChart({ stocks, quotes }: Props) {
         <XAxis
           type="number"
           domain={domain}
+          ticks={ticks}
           allowDataOverflow={false}
-          tickFormatter={(v) => `${v > 0 ? "+" : ""}${v}%`}
+          tickFormatter={(v) => v === 0 ? "0" : `${v > 0 ? "+" : ""}${v}%`}
           tick={{ fontSize: 10, fill: "var(--muted)" }}
           axisLine={{ stroke: "var(--border-subtle)" }}
           tickLine={false}
