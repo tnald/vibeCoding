@@ -11,7 +11,6 @@ import AccountSummaryCard from "@/components/dashboard/AccountSummaryCard";
 import PortfolioAnalysisChart from "@/components/charts/PortfolioAnalysisChart";
 import StockReturnChart from "@/components/charts/StockReturnChart";
 import StockListSection from "@/components/portfolio/StockListSection";
-import CashPanel from "@/components/portfolio/CashPanel";
 
 export default function HomePage() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
@@ -72,6 +71,7 @@ export default function HomePage() {
               onCurrencyToggle={() =>
                 setDisplayCurrency((c) => (c === "KRW" ? "USD" : "KRW"))
               }
+              onCashUpdate={handleCashUpdate}
             />
 
             <div className="px-8 pb-10 pt-6 space-y-5">
@@ -125,15 +125,6 @@ export default function HomePage() {
                 onAddStock={addStock}
                 onDeleteStock={removeStock}
               />
-
-              {/* ⑤ 현금 관리 */}
-              <div className="max-w-sm">
-                <CashPanel
-                  cashKRW={selectedAccount.cashKRW}
-                  cashUSD={selectedAccount.cashUSD}
-                  onUpdate={handleCashUpdate}
-                />
-              </div>
             </div>
           </div>
         )}
