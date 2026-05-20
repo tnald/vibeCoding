@@ -7,18 +7,21 @@ export function useQuotes(stocks: Stock[]) {
   const [quotes, setQuotes] = useState<Record<string, StockQuote>>({});
   const [loading, setLoading] = useState(false);
 
-  // stocks 배열이 바뀔 때만 재조회 (ticker 목록 기준)
-  const tickerKey = stocks.map((s) => `${s.ticker}:${s.market}`).join(",");
+  // 중복 티커 제거 후 키 생성 (같은 종목 여러 번 매수해도 1회만 조회)
+  const uniqueTickers = Array.from(
+    new Map(stocks.map((s) => [`${s.ticker}:${s.market}`, s])).values()
+  );
+  const tickerKey = uniqueTickers.map((s) => `${s.ticker}:${s.market}`).join(",");
 
   const fetchAll = useCallback(async () => {
-    if (stocks.length === 0) {
+    if (uniqueTickers.length === 0) {
       setQuotes({});
       return;
     }
     setLoading(true);
 
     const results = await Promise.allSettled(
-      stocks.map(async (s) => {
+      uniqueTickers.map(async (s) => {
         const res = await fetch(`/api/price?ticker=${s.ticker}&market=${s.market}`);
         if (!res.ok) throw new Error(`fetch failed: ${s.ticker}`);
         const data = await res.json();
