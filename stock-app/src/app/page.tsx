@@ -18,7 +18,7 @@ export default function HomePage() {
 
   const { accounts, loading: accountsLoading, addAccount, updateCash, deleteAccount } = useAccounts();
   const { stocks: accountStocks, addStock, removeStock } = useStocks(selectedAccountId);
-  const { quotes } = useQuotes(accountStocks);
+  const { quotes, loading: quotesLoading } = useQuotes(accountStocks);
 
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId) ?? null;
 
@@ -81,27 +81,26 @@ export default function HomePage() {
                 account={selectedAccount}
                 stocks={accountStocks}
                 quotes={quotes}
-                displayCurrency={displayCurrency}
+                quotesLoading={quotesLoading}
               />
 
               {/* ② 포트폴리오 분석 + 종목별 수익률 */}
-              <div className="grid grid-cols-[1fr_1.6fr] gap-5">
+              <div className="grid grid-cols-[1fr_1.6fr] gap-5 items-start">
                 <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-5">
-                  <p className="text-xs font-semibold text-[var(--muted)] mb-4">포트폴리오 분석</p>
-                  <div className="h-[160px]">
-                    <PortfolioAnalysisChart
-                      stocks={accountStocks}
-                      quotes={quotes}
-                      cashKRW={selectedAccount.cashKRW}
-                      cashUSD={selectedAccount.cashUSD}
-                    />
-                  </div>
+                  <p className="text-xs font-semibold text-[var(--muted)] mb-4">종목 비중 (현금 포함)</p>
+                  <PortfolioAnalysisChart
+                    stocks={accountStocks}
+                    quotes={quotes}
+                    cashKRW={selectedAccount.cashKRW}
+                    cashUSD={selectedAccount.cashUSD}
+                    account={selectedAccount}
+                  />
                 </div>
 
                 <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-5">
                   <p className="text-xs font-semibold text-[var(--muted)] mb-4">종목별 수익률</p>
                   <div className="h-[160px]">
-                    <StockReturnChart stocks={accountStocks} quotes={quotes} />
+                    <StockReturnChart stocks={accountStocks} quotes={quotes} quotesLoading={quotesLoading} />
                   </div>
                 </div>
               </div>
