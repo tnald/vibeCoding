@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, Trash2 } from "lucide-react";
+import { Plus, Trash2, ChevronRight } from "lucide-react";
 import { Account, Stock, StockQuote, Sector } from "@/types";
 import AddStockModal from "./AddStockModal";
+import StockTransactionModal from "./StockTransactionModal";
 
 const SECTOR_COLORS: Record<Sector, string> = {
   반도체: "bg-violet-500/10 text-violet-400",
@@ -15,6 +16,17 @@ const SECTOR_COLORS: Record<Sector, string> = {
   에너지: "bg-green-500/10 text-green-400",
   기타: "bg-slate-500/10 text-slate-400",
 };
+
+interface StockGroup {
+  ticker: string;
+  name: string;
+  market: "KR" | "US";
+  sector: Sector;
+  currency: "KRW" | "USD";
+  totalQuantity: number;
+  avgPrice: number;
+  transactions: Stock[];
+}
 
 interface Props {
   market: "KR" | "US";
@@ -29,10 +41,38 @@ export default function StockListSection({
   market, account, stocks, quotes, onAddStock, onDeleteStock,
 }: Props) {
   const [showModal, setShowModal] = useState(false);
+  const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
+
   const filtered = stocks.filter((s) => s.market === market);
+
+  // 티커별 그룹핑
+  const groups: StockGroup[] = Object.values(
+    filtered.reduce<Record<string, StockGroup>>((acc, stock) => {
+      if (!acc[stock.ticker]) {
+        acc[stock.ticker] = {
+          ticker: stock.ticker,
+          name: stock.name,
+          market: stock.market,
+          sector: stock.sector,
+          currency: stock.currency,
+          totalQuantity: 0,
+          avgPrice: 0,
+          transactions: [],
+        };
+      }
+      acc[stock.ticker].transactions.push(stock);
+      return acc;
+    }, {})
+  ).map((g) => {
+    const totalCost = g.transactions.reduce((s, t) => s + t.avgPrice * t.quantity, 0);
+    const totalQty = g.transactions.reduce((s, t) => s + t.quantity, 0);
+    return { ...g, totalQuantity: totalQty, avgPrice: totalQty > 0 ? totalCost / totalQty : 0 };
+  });
 
   const fmtKR = (v: number) => `₩${Math.round(v).toLocaleString("ko-KR")}`;
   const fmtUS = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+
+  const selectedGroup = groups.find((g) => g.ticker === selectedTicker) ?? null;
 
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl overflow-hidden">
@@ -44,7 +84,7 @@ export default function StockListSection({
             {market === "KR" ? "국내 주식" : "해외 주식"}
           </h2>
           <span className="text-xs text-[var(--muted)] bg-[var(--background)] px-2 py-0.5 rounded-lg">
-            {filtered.length}종목
+            {groups.length}종목
           </span>
         </div>
         <button
@@ -58,7 +98,7 @@ export default function StockListSection({
       </div>
 
       {/* 빈 상태 */}
-      {filtered.length === 0 ? (
+      {groups.length === 0 ? (
         <div className="py-12 text-center">
           <p className="text-sm text-[var(--muted)]">보유 종목이 없습니다</p>
           <p className="text-xs text-[var(--muted)] mt-1 opacity-60">종목 추가 버튼으로 주식을 등록하세요</p>
@@ -79,20 +119,21 @@ export default function StockListSection({
             </tr>
           </thead>
           <tbody>
-            {filtered.map((stock) => {
-              const cur = quotes[stock.ticker]?.price ?? stock.avgPrice;
-              const evalValue = cur * stock.quantity;
-              const profit = (cur - stock.avgPrice) * stock.quantity;
-              const returnPct =
-                stock.avgPrice > 0 ? ((cur - stock.avgPrice) / stock.avgPrice) * 100 : 0;
+            {groups.map((group) => {
+              const cur = quotes[group.ticker]?.price ?? group.avgPrice;
+              const evalValue = cur * group.totalQuantity;
+              const profit = (cur - group.avgPrice) * group.totalQuantity;
+              const returnPct = group.avgPrice > 0 ? ((cur - group.avgPrice) / group.avgPrice) * 100 : 0;
               const isUp = profit >= 0;
-              const fmt = stock.currency === "USD" ? fmtUS : fmtKR;
+              const fmt = group.currency === "USD" ? fmtUS : fmtKR;
+              const txCount = group.transactions.length;
 
               return (
                 <tr
-                  key={stock.id}
+                  key={group.ticker}
+                  onClick={() => setSelectedTicker(group.ticker)}
                   className="border-b border-[var(--border-subtle)] last:border-0
-                    hover:bg-[var(--background)]/50 transition-colors group"
+                    hover:bg-[var(--background)]/50 transition-colors group cursor-pointer"
                 >
                   {/* 종목명 */}
                   <td className="py-3.5 px-5">
@@ -104,24 +145,31 @@ export default function StockListSection({
                         {market}
                       </span>
                       <div className="min-w-0">
-                        <p className="text-sm font-semibold text-[var(--foreground)]">{stock.name}</p>
-                        <p className="text-[10px] text-[var(--muted)]">{stock.ticker}</p>
+                        <p className="text-sm font-semibold text-[var(--foreground)]">{group.name}</p>
+                        <div className="flex items-center gap-1.5 mt-0.5">
+                          <p className="text-[10px] text-[var(--muted)]">{group.ticker}</p>
+                          {txCount > 1 && (
+                            <span className="text-[9px] bg-[var(--accent)]/10 text-[var(--accent)] px-1.5 py-0.5 rounded-md font-medium">
+                              {txCount}회 매수
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
                   </td>
                   {/* 섹터 */}
                   <td className="py-3.5 px-4">
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-lg ${SECTOR_COLORS[stock.sector]}`}>
-                      {stock.sector}
+                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-lg ${SECTOR_COLORS[group.sector]}`}>
+                      {group.sector}
                     </span>
                   </td>
                   {/* 보유량 */}
                   <td className="py-3.5 px-4 text-right text-sm text-[var(--foreground)] tabular-nums">
-                    {stock.quantity.toLocaleString()}주
+                    {group.totalQuantity.toLocaleString()}주
                   </td>
                   {/* 평균단가 */}
                   <td className="py-3.5 px-4 text-right text-sm text-[var(--muted)] tabular-nums">
-                    {fmt(stock.avgPrice)}
+                    {fmt(group.avgPrice)}
                   </td>
                   {/* 현재가 */}
                   <td className="py-3.5 px-4 text-right text-sm font-medium text-[var(--foreground)] tabular-nums">
@@ -144,15 +192,24 @@ export default function StockListSection({
                       {isUp ? "+" : ""}{returnPct.toFixed(2)}%
                     </span>
                   </td>
-                  {/* 삭제 */}
+                  {/* 액션 */}
                   <td className="py-3.5 px-3">
-                    <button
-                      onClick={() => onDeleteStock(stock.id)}
-                      className="opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center
-                        rounded-lg text-[var(--muted)] hover:bg-red-500/10 hover:text-red-400 transition-all"
-                    >
-                      <Trash2 size={12} />
-                    </button>
+                    <div className="flex items-center gap-1 justify-end">
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          group.transactions.forEach((t) => onDeleteStock(t.id));
+                        }}
+                        className="opacity-0 group-hover:opacity-100 w-6 h-6 flex items-center justify-center
+                          rounded-lg text-[var(--muted)] hover:bg-red-500/10 hover:text-red-400 transition-all"
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                      <ChevronRight
+                        size={14}
+                        className="text-[var(--muted)] opacity-0 group-hover:opacity-100 transition-opacity"
+                      />
+                    </div>
                   </td>
                 </tr>
               );
@@ -169,6 +226,17 @@ export default function StockListSection({
             onAddStock(stock);
             setShowModal(false);
           }}
+        />
+      )}
+
+      {selectedGroup && (
+        <StockTransactionModal
+          ticker={selectedGroup.ticker}
+          name={selectedGroup.name}
+          market={selectedGroup.market}
+          transactions={selectedGroup.transactions}
+          quote={quotes[selectedGroup.ticker] ?? null}
+          onClose={() => setSelectedTicker(null)}
         />
       )}
     </div>
