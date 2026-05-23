@@ -150,3 +150,16 @@ export async function updateStockBuyDate(id: string, buyDate: string): Promise<v
   const { error } = await sb.from("stocks").update({ buy_date: buyDate }).eq("id", id);
   if (error) throw error;
 }
+
+export async function updateStockBuyDateAndPrice(
+  id: string,
+  buyDate: string,
+  avgPrice: number
+): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb
+    .from("stocks")
+    .update({ buy_date: buyDate, avg_price: avgPrice })
+    .eq("id", id);
+  if (error) throw error;
+}

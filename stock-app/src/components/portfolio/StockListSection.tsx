@@ -23,8 +23,8 @@ interface StockGroup {
   market: "KR" | "US";
   sector: Sector;
   currency: "KRW" | "USD";
-  totalQuantity: number;
-  avgPrice: number;
+  totalQuantity: number; // net (buys - sells)
+  avgPrice: number;      // avg of buy transactions only
   transactions: Stock[];
 }
 
@@ -35,18 +35,19 @@ interface Props {
   quotes: Record<string, StockQuote>;
   onAddStock: (stock: Stock) => void;
   onDeleteStock: (id: string) => void;
-  onUpdateDate: (id: string, buyDate: string) => Promise<void>;
+  onUpdateDate: (id: string, buyDate: string, avgPrice: number) => Promise<void>;
+  onAddSell: (sell: Stock) => Promise<void>;
 }
 
 export default function StockListSection({
-  market, account, stocks, quotes, onAddStock, onDeleteStock, onUpdateDate,
+  market, account, stocks, quotes, onAddStock, onDeleteStock, onUpdateDate, onAddSell,
 }: Props) {
   const [showModal, setShowModal] = useState(false);
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
 
   const filtered = stocks.filter((s) => s.market === market);
 
-  // 티커별 그룹핑
+  // 티커별 그룹핑 — 매도(음수 수량) 포함 순 수량 계산
   const groups: StockGroup[] = Object.values(
     filtered.reduce<Record<string, StockGroup>>((acc, stock) => {
       if (!acc[stock.ticker]) {
@@ -65,15 +66,25 @@ export default function StockListSection({
       return acc;
     }, {})
   ).map((g) => {
-    const totalCost = g.transactions.reduce((s, t) => s + t.avgPrice * t.quantity, 0);
-    const totalQty = g.transactions.reduce((s, t) => s + t.quantity, 0);
-    return { ...g, totalQuantity: totalQty, avgPrice: totalQty > 0 ? totalCost / totalQty : 0 };
-  });
+    const buys = g.transactions.filter((t) => t.quantity > 0);
+    const totalBuyQty = buys.reduce((s, t) => s + t.quantity, 0);
+    const totalSellQty = Math.abs(
+      g.transactions.filter((t) => t.quantity < 0).reduce((s, t) => s + t.quantity, 0)
+    );
+    const netQty = totalBuyQty - totalSellQty;
+    const totalBuyCost = buys.reduce((s, t) => s + t.avgPrice * t.quantity, 0);
+    const avgPrice = totalBuyQty > 0 ? totalBuyCost / totalBuyQty : 0;
+    return { ...g, totalQuantity: netQty, avgPrice };
+  }).filter((g) => g.totalQuantity > 0); // 전량 매도 시 목록에서 제외
 
   const fmtKR = (v: number) => `₩${Math.round(v).toLocaleString("ko-KR")}`;
   const fmtUS = (v: number) => `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
   const selectedGroup = groups.find((g) => g.ticker === selectedTicker) ?? null;
+  // 선택된 그룹의 모든 거래내역 (매도 포함)
+  const selectedTransactions = selectedTicker
+    ? filtered.filter((s) => s.ticker === selectedTicker)
+    : [];
 
   return (
     <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl overflow-hidden">
@@ -128,7 +139,8 @@ export default function StockListSection({
               const returnPct = group.avgPrice > 0 ? ((cur - group.avgPrice) / group.avgPrice) * 100 : 0;
               const isUp = profit >= 0;
               const fmt = group.currency === "USD" ? fmtUS : fmtKR;
-              const txCount = group.transactions.length;
+              const txCount = group.transactions.filter((t) => t.quantity > 0).length;
+              const hasSell = group.transactions.some((t) => t.quantity < 0);
 
               return (
                 <tr
@@ -153,6 +165,11 @@ export default function StockListSection({
                           {txCount > 1 && (
                             <span className="text-[9px] bg-[var(--accent)]/10 text-[var(--accent)] px-1.5 py-0.5 rounded-md font-medium">
                               {txCount}회 매수
+                            </span>
+                          )}
+                          {hasSell && (
+                            <span className="text-[9px] bg-blue-500/10 text-blue-400 px-1.5 py-0.5 rounded-md font-medium">
+                              매도이력
                             </span>
                           )}
                         </div>
@@ -237,10 +254,11 @@ export default function StockListSection({
           ticker={selectedGroup.ticker}
           name={selectedGroup.name}
           market={selectedGroup.market}
-          transactions={selectedGroup.transactions}
+          transactions={selectedTransactions}
           quote={quotes[selectedGroup.ticker] ?? null}
           onClose={() => setSelectedTicker(null)}
           onUpdateDate={onUpdateDate}
+          onAddSell={onAddSell}
         />
       )}
     </div>
