@@ -5,9 +5,13 @@ import { Account, Stock } from "@/types";
 
 export async function fetchAccounts(): Promise<Account[]> {
   const sb = createClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) throw new Error("로그인이 필요합니다");
+
   const { data, error } = await sb
     .from("accounts")
     .select("*")
+    .eq("user_id", user.id)
     .order("created_at", { ascending: true });
 
   if (error) throw error;
@@ -55,8 +59,11 @@ export async function insertAccount(
 
 export async function deleteAccount(id: string): Promise<void> {
   const sb = createClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) throw new Error("로그인이 필요합니다");
+
   await sb.from("stocks").delete().eq("account_id", id);
-  const { error } = await sb.from("accounts").delete().eq("id", id);
+  const { error } = await sb.from("accounts").delete().eq("id", id).eq("user_id", user.id);
   if (error) throw error;
 }
 
@@ -66,10 +73,14 @@ export async function updateAccountCash(
   cashUSD: number
 ): Promise<void> {
   const sb = createClient();
+  const { data: { user } } = await sb.auth.getUser();
+  if (!user) throw new Error("로그인이 필요합니다");
+
   const { error } = await sb
     .from("accounts")
     .update({ cash_krw: cashKRW, cash_usd: cashUSD })
-    .eq("id", id);
+    .eq("id", id)
+    .eq("user_id", user.id);
   if (error) throw error;
 }
 
@@ -131,5 +142,11 @@ export async function updateStockSector(
     .from("stocks")
     .update({ sector })
     .eq("id", id);
+  if (error) throw error;
+}
+
+export async function updateStockBuyDate(id: string, buyDate: string): Promise<void> {
+  const sb = createClient();
+  const { error } = await sb.from("stocks").update({ buy_date: buyDate }).eq("id", id);
   if (error) throw error;
 }

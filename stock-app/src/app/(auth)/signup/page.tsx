@@ -2,16 +2,31 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { TrendingUp, User, Lock, Loader2, CheckCircle2 } from "lucide-react";
+import { TrendingUp, User, Lock, Loader2, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
 function toEmail(id: string) {
   return `${id.trim()}@portfoliox.app`;
 }
 
+function translateError(msg: string): string {
+  if (msg.includes("User already registered") || msg.includes("already been registered")) {
+    return "이미 사용 중인 아이디입니다";
+  }
+  if (msg.includes("Password should be at least")) {
+    return "비밀번호는 6자 이상이어야 합니다";
+  }
+  if (msg.includes("rate limit") || msg.includes("too many")) {
+    return "잠시 후 다시 시도해주세요";
+  }
+  return "회원가입 중 오류가 발생했습니다. 다시 시도해주세요";
+}
+
 export default function SignupPage() {
   const [id, setId] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [done, setDone] = useState(false);
@@ -22,8 +37,16 @@ export default function SignupPage() {
       setError("아이디는 2자 이상이어야 합니다");
       return;
     }
+    if (!/^[a-zA-Z0-9_]+$/.test(id.trim())) {
+      setError("아이디는 영문, 숫자, 밑줄(_)만 사용할 수 있습니다");
+      return;
+    }
     if (password.length < 6) {
       setError("비밀번호는 6자 이상이어야 합니다");
+      return;
+    }
+    if (password !== confirmPassword) {
+      setError("비밀번호가 일치하지 않습니다");
       return;
     }
     setLoading(true);
@@ -36,7 +59,7 @@ export default function SignupPage() {
     });
 
     if (err) {
-      setError(err.message);
+      setError(translateError(err.message));
       setLoading(false);
       return;
     }
@@ -83,7 +106,7 @@ export default function SignupPage() {
                   type="text"
                   value={id}
                   onChange={(e) => setId(e.target.value)}
-                  placeholder="사용할 아이디 입력 (2자 이상)"
+                  placeholder="영문, 숫자, 밑줄 (2자 이상)"
                   required
                   autoFocus
                   className="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl
@@ -98,15 +121,48 @@ export default function SignupPage() {
               <div className="relative">
                 <Lock size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
                 <input
-                  type="password"
+                  type={showPassword ? "text" : "password"}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
                   required
                   className="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl
-                    pl-9 pr-4 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)]
+                    pl-9 pr-10 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)]
                     focus:outline-none focus:border-[var(--accent)]/60 transition-colors"
                 />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword((v) => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--muted)] hover:text-[var(--foreground)] transition-colors"
+                >
+                  {showPassword ? <EyeOff size={14} /> : <Eye size={14} />}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-[var(--muted)] mb-1.5 block">비밀번호 확인</label>
+              <div className="relative">
+                <Lock size={14} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[var(--muted)]" />
+                <input
+                  type={showPassword ? "text" : "password"}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="••••••••"
+                  required
+                  className={`w-full bg-[var(--background)] border rounded-xl
+                    pl-9 pr-4 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)]
+                    focus:outline-none transition-colors
+                    ${confirmPassword && confirmPassword !== password
+                      ? "border-red-500/50 focus:border-red-500/70"
+                      : confirmPassword && confirmPassword === password
+                        ? "border-emerald-500/50 focus:border-emerald-500/70"
+                        : "border-[var(--border)] focus:border-[var(--accent)]/60"
+                    }`}
+                />
+                {confirmPassword && confirmPassword === password && (
+                  <CheckCircle2 size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-400" />
+                )}
               </div>
             </div>
 
