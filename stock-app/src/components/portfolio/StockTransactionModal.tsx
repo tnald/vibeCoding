@@ -1,6 +1,7 @@
 "use client";
 
-import { X, TrendingUp, Calendar, Hash, DollarSign } from "lucide-react";
+import { useState } from "react";
+import { X, TrendingUp, Calendar, Hash, DollarSign, Check, Loader2 } from "lucide-react";
 import { Stock, StockQuote } from "@/types";
 
 interface Props {
@@ -10,9 +11,14 @@ interface Props {
   transactions: Stock[];
   quote: StockQuote | null;
   onClose: () => void;
+  onUpdateDate?: (id: string, buyDate: string) => Promise<void>;
 }
 
-export default function StockTransactionModal({ ticker, name, market, transactions, quote, onClose }: Props) {
+export default function StockTransactionModal({ ticker, name, market, transactions, quote, onClose, onUpdateDate }: Props) {
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editDate, setEditDate] = useState("");
+  const [saving, setSaving] = useState(false);
+
   const currency = transactions[0]?.currency ?? (market === "KR" ? "KRW" : "USD");
 
   const fmt = (v: number) =>
@@ -36,6 +42,28 @@ export default function StockTransactionModal({ ticker, name, market, transactio
   const fmtDate = (d: string) => {
     const dt = new Date(d);
     return `${dt.getFullYear()}.${String(dt.getMonth() + 1).padStart(2, "0")}.${String(dt.getDate()).padStart(2, "0")}`;
+  };
+
+  const startEdit = (tx: Stock) => {
+    if (!onUpdateDate) return;
+    setEditingId(tx.id);
+    setEditDate(tx.buyDate.slice(0, 10));
+  };
+
+  const confirmEdit = async (id: string) => {
+    if (!onUpdateDate || !editDate) return;
+    setSaving(true);
+    try {
+      await onUpdateDate(id, editDate);
+    } finally {
+      setSaving(false);
+      setEditingId(null);
+    }
+  };
+
+  const cancelEdit = () => {
+    setEditingId(null);
+    setEditDate("");
   };
 
   return (
@@ -107,6 +135,8 @@ export default function StockTransactionModal({ ticker, name, market, transactio
 
           {sorted.map((tx, i) => {
             const amount = tx.avgPrice * tx.quantity;
+            const isEditing = editingId === tx.id;
+
             return (
               <div
                 key={tx.id}
@@ -114,13 +144,51 @@ export default function StockTransactionModal({ ticker, name, market, transactio
                   border-b border-[var(--border-subtle)] last:border-0
                   hover:bg-[var(--background)]/40 transition-colors"
               >
-                {/* 날짜 + 순서 */}
+                {/* 날짜 */}
                 <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-md bg-[var(--accent)]/10 flex items-center justify-center">
+                  <div className="w-5 h-5 rounded-md bg-[var(--accent)]/10 flex items-center justify-center shrink-0">
                     <TrendingUp size={10} className="text-[var(--accent)]" />
                   </div>
-                  <div>
-                    <p className="text-[11px] font-medium text-[var(--foreground)]">{fmtDate(tx.buyDate)}</p>
+                  <div className="min-w-0">
+                    {isEditing ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="date"
+                          value={editDate}
+                          onChange={(e) => setEditDate(e.target.value)}
+                          max={new Date().toISOString().slice(0, 10)}
+                          autoFocus
+                          className="w-[110px] bg-[var(--background)] border border-[var(--accent)]/50 rounded-lg
+                            px-1.5 py-0.5 text-[11px] text-[var(--foreground)]
+                            focus:outline-none focus:border-[var(--accent)] transition-colors"
+                        />
+                        <button
+                          onClick={() => confirmEdit(tx.id)}
+                          disabled={saving}
+                          className="w-5 h-5 flex items-center justify-center rounded-md
+                            bg-[var(--accent)]/15 text-[var(--accent)] hover:bg-[var(--accent)]/30 transition-colors"
+                        >
+                          {saving ? <Loader2 size={9} className="animate-spin" /> : <Check size={9} />}
+                        </button>
+                        <button
+                          onClick={cancelEdit}
+                          className="w-5 h-5 flex items-center justify-center rounded-md
+                            text-[var(--muted)] hover:bg-[var(--border)] transition-colors"
+                        >
+                          <X size={9} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => startEdit(tx)}
+                        className={`text-[11px] font-medium text-[var(--foreground)] text-left
+                          hover:text-[var(--accent)] transition-colors
+                          ${onUpdateDate ? "cursor-pointer underline-offset-2 hover:underline" : "cursor-default"}`}
+                        title={onUpdateDate ? "클릭하여 날짜 수정" : undefined}
+                      >
+                        {fmtDate(tx.buyDate)}
+                      </button>
+                    )}
                     <p className="text-[9px] text-[var(--muted)]">매수 #{i + 1}</p>
                   </div>
                 </div>

@@ -7,6 +7,7 @@ import {
   insertStock,
   deleteStock,
   updateStockSector,
+  updateStockBuyDate,
 } from "@/lib/supabase/queries";
 
 export function useStocks(accountId: string | null) {
@@ -43,5 +44,10 @@ export function useStocks(accountId: string | null) {
     setStocks((prev) => prev.map((s) => (s.id === id ? { ...s, sector } : s)));
   };
 
-  return { stocks, loading, addStock, removeStock, changeSector };
+  const changeBuyDate = async (id: string, buyDate: string) => {
+    await updateStockBuyDate(id, buyDate);
+    setStocks((prev) => prev.map((s) => (s.id === id ? { ...s, buyDate } : s)));
+  };
+
+  return { stocks, loading, addStock, removeStock, changeSector, changeBuyDate };
 }
