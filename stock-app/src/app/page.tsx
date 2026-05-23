@@ -15,9 +15,10 @@ import StockListSection from "@/components/portfolio/StockListSection";
 export default function HomePage() {
   const [selectedAccountId, setSelectedAccountId] = useState<string | null>(null);
   const [displayCurrency, setDisplayCurrency] = useState<"KRW" | "USD">("KRW");
+  const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const { accounts, loading: accountsLoading, addAccount, updateCash, deleteAccount } = useAccounts();
-  const { stocks: accountStocks, addStock, removeStock } = useStocks(selectedAccountId);
+  const { stocks: accountStocks, addStock, removeStock, changeBuyDate } = useStocks(selectedAccountId);
   const { quotes, loading: quotesLoading } = useQuotes(accountStocks);
 
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId) ?? null;
@@ -58,6 +59,8 @@ export default function HomePage() {
           await deleteAccount(id);
           if (selectedAccountId === id) setSelectedAccountId(null);
         }}
+        mobileOpen={sidebarOpen}
+        onMobileClose={() => setSidebarOpen(false)}
       />
 
       <main className="flex-1 overflow-y-auto">
@@ -72,9 +75,10 @@ export default function HomePage() {
                 setDisplayCurrency((c) => (c === "KRW" ? "USD" : "KRW"))
               }
               onCashUpdate={handleCashUpdate}
+              onMenuToggle={() => setSidebarOpen((v) => !v)}
             />
 
-            <div className="px-8 pb-10 pt-6 space-y-5">
+            <div className="px-4 md:px-8 pb-10 pt-6 space-y-5">
 
               {/* ① 계좌 요약 */}
               <AccountSummaryCard
@@ -85,7 +89,7 @@ export default function HomePage() {
               />
 
               {/* ② 포트폴리오 분석 + 종목별 수익률 */}
-              <div className="grid grid-cols-[1fr_1.6fr] gap-5 items-start">
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_1.6fr] gap-5 items-start">
                 <div className="bg-[var(--surface)] border border-[var(--border)] rounded-2xl p-5">
                   <p className="text-xs font-semibold text-[var(--muted)] mb-4">종목 비중 (현금 포함)</p>
                   <PortfolioAnalysisChart
@@ -113,6 +117,7 @@ export default function HomePage() {
                 quotes={quotes}
                 onAddStock={addStock}
                 onDeleteStock={removeStock}
+                onUpdateDate={changeBuyDate}
               />
 
               {/* ④ 해외 주식 리스트 */}
@@ -123,6 +128,7 @@ export default function HomePage() {
                 quotes={quotes}
                 onAddStock={addStock}
                 onDeleteStock={removeStock}
+                onUpdateDate={changeBuyDate}
               />
             </div>
           </div>

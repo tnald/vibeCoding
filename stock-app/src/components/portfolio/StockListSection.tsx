@@ -35,10 +35,11 @@ interface Props {
   quotes: Record<string, StockQuote>;
   onAddStock: (stock: Stock) => void;
   onDeleteStock: (id: string) => void;
+  onUpdateDate: (id: string, buyDate: string) => Promise<void>;
 }
 
 export default function StockListSection({
-  market, account, stocks, quotes, onAddStock, onDeleteStock,
+  market, account, stocks, quotes, onAddStock, onDeleteStock, onUpdateDate,
 }: Props) {
   const [showModal, setShowModal] = useState(false);
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
@@ -104,7 +105,8 @@ export default function StockListSection({
           <p className="text-xs text-[var(--muted)] mt-1 opacity-60">종목 추가 버튼으로 주식을 등록하세요</p>
         </div>
       ) : (
-        <table className="w-full">
+        <div className="overflow-x-auto">
+        <table className="w-full min-w-[640px]">
           <thead>
             <tr className="text-[11px] text-[var(--muted)] border-b border-[var(--border-subtle)]">
               <th className="text-left py-2.5 px-5 font-medium">종목명</th>
@@ -216,6 +218,7 @@ export default function StockListSection({
             })}
           </tbody>
         </table>
+        </div>
       )}
 
       {showModal && (
@@ -237,6 +240,7 @@ export default function StockListSection({
           transactions={selectedGroup.transactions}
           quote={quotes[selectedGroup.ticker] ?? null}
           onClose={() => setSelectedTicker(null)}
+          onUpdateDate={onUpdateDate}
         />
       )}
     </div>

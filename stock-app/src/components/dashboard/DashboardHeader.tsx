@@ -2,7 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState, useRef, useEffect } from "react";
-import { LogOut, Sun, Moon, Wallet, ArrowDownCircle, ArrowUpCircle } from "lucide-react";
+import { LogOut, Sun, Moon, Wallet, ArrowDownCircle, ArrowUpCircle, Menu } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useTheme } from "@/hooks/useTheme";
 import { Account } from "@/types";
@@ -12,6 +12,7 @@ interface DashboardHeaderProps {
   displayCurrency: "KRW" | "USD";
   onCurrencyToggle: () => void;
   onCashUpdate: (deltaKRW: number, deltaUSD: number) => void;
+  onMenuToggle?: () => void;
 }
 
 export default function DashboardHeader({
@@ -19,6 +20,7 @@ export default function DashboardHeader({
   displayCurrency,
   onCurrencyToggle,
   onCashUpdate,
+  onMenuToggle,
 }: DashboardHeaderProps) {
   const router = useRouter();
   const { theme, toggleTheme } = useTheme();
@@ -63,9 +65,17 @@ export default function DashboardHeader({
   });
 
   return (
-    <header className="flex items-center justify-between px-8 py-4 border-b border-[var(--border-subtle)]">
+    <header className="flex items-center justify-between px-4 md:px-8 py-4 border-b border-[var(--border-subtle)]">
       {/* 좌측: 계좌 정보 */}
       <div className="flex items-center gap-3">
+        {/* 모바일 햄버거 */}
+        <button
+          onClick={onMenuToggle}
+          className="md:hidden w-8 h-8 flex items-center justify-center rounded-xl text-[var(--muted)]
+            hover:bg-[var(--surface-elevated)] hover:text-[var(--foreground)] transition-colors"
+        >
+          <Menu size={18} />
+        </button>
         <div className="w-8 h-8 rounded-xl bg-[var(--accent)]/15 flex items-center justify-center text-lg">
           {account.icon}
         </div>

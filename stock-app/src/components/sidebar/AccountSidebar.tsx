@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, TrendingUp, Trash2 } from "lucide-react";
+import { Plus, TrendingUp, Trash2, X } from "lucide-react";
 import { Account } from "@/types";
 import AddAccountModal from "./AddAccountModal";
 
@@ -11,6 +11,8 @@ interface AccountSidebarProps {
   onSelect: (id: string) => void;
   onAdd: (account: Account) => void;
   onDelete: (id: string) => void;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 export default function AccountSidebar({
@@ -19,21 +21,52 @@ export default function AccountSidebar({
   onSelect,
   onAdd,
   onDelete,
+  mobileOpen = false,
+  onMobileClose,
 }: AccountSidebarProps) {
   const [showModal, setShowModal] = useState(false);
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
 
+  const handleSelect = (id: string) => {
+    onSelect(id);
+    onMobileClose?.();
+  };
+
   return (
     <>
-      <aside className="w-64 shrink-0 flex flex-col h-screen bg-[var(--surface)] border-r border-[var(--border)]">
+      {/* 모바일 오버레이 */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-20 md:hidden"
+          onClick={onMobileClose}
+        />
+      )}
+
+      <aside className={`
+        fixed md:relative z-30 md:z-auto
+        w-64 shrink-0 flex flex-col h-screen
+        bg-[var(--surface)] border-r border-[var(--border)]
+        transition-transform duration-300 ease-in-out
+        ${mobileOpen ? "translate-x-0" : "-translate-x-full md:translate-x-0"}
+      `}>
         {/* 로고 */}
-        <div className="flex items-center gap-2.5 px-5 py-5 border-b border-[var(--border-subtle)]">
-          <div className="w-7 h-7 rounded-lg bg-[var(--accent)] flex items-center justify-center">
-            <TrendingUp size={14} className="text-white" />
+        <div className="flex items-center justify-between px-5 py-5 border-b border-[var(--border-subtle)]">
+          <div className="flex items-center gap-2.5">
+            <div className="w-7 h-7 rounded-lg bg-[var(--accent)] flex items-center justify-center">
+              <TrendingUp size={14} className="text-white" />
+            </div>
+            <span className="text-sm font-semibold text-[var(--foreground)] tracking-tight">
+              PortfolioX
+            </span>
           </div>
-          <span className="text-sm font-semibold text-[var(--foreground)] tracking-tight">
-            PortfolioX
-          </span>
+          {/* 모바일 닫기 버튼 */}
+          <button
+            onClick={onMobileClose}
+            className="md:hidden w-7 h-7 flex items-center justify-center rounded-lg
+              text-[var(--muted)] hover:text-[var(--foreground)] hover:bg-[var(--surface-elevated)] transition-colors"
+          >
+            <X size={16} />
+          </button>
         </div>
 
         {/* 계좌 목록 */}
@@ -55,7 +88,7 @@ export default function AccountSidebar({
               return (
                 <div key={account.id} className="group relative">
                   <button
-                    onClick={() => onSelect(account.id)}
+                    onClick={() => handleSelect(account.id)}
                     className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-left transition-all
                       ${isSelected
                         ? "bg-[var(--surface-elevated)] text-[var(--foreground)]"
