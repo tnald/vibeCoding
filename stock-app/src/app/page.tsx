@@ -65,7 +65,7 @@ export default function HomePage() {
 
       <main className="flex-1 overflow-y-auto">
         {!selectedAccount ? (
-          <EmptyDashboard />
+          <EmptyDashboard onMenuToggle={() => setSidebarOpen((v) => !v)} />
         ) : (
           <div className="flex flex-col">
             <DashboardHeader
