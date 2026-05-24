@@ -18,7 +18,7 @@ export default function HomePage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const { accounts, loading: accountsLoading, addAccount, updateCash, deleteAccount } = useAccounts();
-  const { stocks: accountStocks, addStock, addSell, removeStock, changeBuyDate } = useStocks(selectedAccountId);
+  const { stocks: accountStocks, addStock, addSell, removeStock, changeBuyDate, changeGroupSector } = useStocks(selectedAccountId);
   const { quotes, loading: quotesLoading } = useQuotes(accountStocks);
 
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId) ?? null;
@@ -119,6 +119,7 @@ export default function HomePage() {
                 onDeleteStock={removeStock}
                 onUpdateDate={changeBuyDate}
                 onAddSell={addSell}
+                onChangeSector={changeGroupSector}
               />
 
               {/* ④ 해외 주식 리스트 */}
@@ -131,6 +132,7 @@ export default function HomePage() {
                 onDeleteStock={removeStock}
                 onUpdateDate={changeBuyDate}
                 onAddSell={addSell}
+                onChangeSector={changeGroupSector}
               />
             </div>
           </div>

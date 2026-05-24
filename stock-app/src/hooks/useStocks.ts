@@ -49,10 +49,15 @@ export function useStocks(accountId: string | null) {
     setStocks((prev) => prev.map((s) => (s.id === id ? { ...s, sector } : s)));
   };
 
+  const changeGroupSector = async (ids: string[], sector: Sector) => {
+    await Promise.all(ids.map((id) => updateStockSector(id, sector)));
+    setStocks((prev) => prev.map((s) => (ids.includes(s.id) ? { ...s, sector } : s)));
+  };
+
   const changeBuyDate = async (id: string, buyDate: string, avgPrice: number) => {
     await updateStockBuyDateAndPrice(id, buyDate, avgPrice);
     setStocks((prev) => prev.map((s) => (s.id === id ? { ...s, buyDate, avgPrice } : s)));
   };
 
-  return { stocks, loading, addStock, addSell, removeStock, changeSector, changeBuyDate };
+  return { stocks, loading, addStock, addSell, removeStock, changeSector, changeGroupSector, changeBuyDate };
 }

@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Plus, Trash2, ChevronRight } from "lucide-react";
 import { Account, Stock, StockQuote, Sector } from "@/types";
+
+const SECTORS: Sector[] = ["반도체", "전력", "바이오", "IT", "금융", "소비재", "에너지", "기타"];
 import AddStockModal from "./AddStockModal";
 import StockTransactionModal from "./StockTransactionModal";
 
@@ -37,10 +39,11 @@ interface Props {
   onDeleteStock: (id: string) => void;
   onUpdateDate: (id: string, buyDate: string, avgPrice: number) => Promise<void>;
   onAddSell: (sell: Stock) => Promise<void>;
+  onChangeSector: (ids: string[], sector: Sector) => Promise<void>;
 }
 
 export default function StockListSection({
-  market, account, stocks, quotes, onAddStock, onDeleteStock, onUpdateDate, onAddSell,
+  market, account, stocks, quotes, onAddStock, onDeleteStock, onUpdateDate, onAddSell, onChangeSector,
 }: Props) {
   const [showModal, setShowModal] = useState(false);
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
@@ -177,10 +180,19 @@ export default function StockListSection({
                     </div>
                   </td>
                   {/* 섹터 */}
-                  <td className="py-3.5 px-4">
-                    <span className={`text-[10px] font-medium px-2 py-0.5 rounded-lg ${SECTOR_COLORS[group.sector]}`}>
-                      {group.sector}
-                    </span>
+                  <td className="py-3.5 px-4" onClick={(e) => e.stopPropagation()}>
+                    <select
+                      value={group.sector}
+                      onChange={(e) => onChangeSector(group.transactions.map((t) => t.id), e.target.value as Sector)}
+                      className={`text-[10px] font-medium px-2 py-0.5 rounded-lg border-none
+                        focus:outline-none cursor-pointer transition-colors appearance-none
+                        ${SECTOR_COLORS[group.sector]}`}
+                      style={{ background: "transparent" }}
+                    >
+                      {SECTORS.map((s) => (
+                        <option key={s} value={s} className="bg-[#1a1e28] text-white">{s}</option>
+                      ))}
+                    </select>
                   </td>
                   {/* 보유량 */}
                   <td className="py-3.5 px-4 text-right text-sm text-[var(--foreground)] tabular-nums">
