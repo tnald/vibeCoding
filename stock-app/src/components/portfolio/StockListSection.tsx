@@ -38,12 +38,13 @@ interface Props {
   onAddStock: (stock: Stock) => void;
   onDeleteStock: (id: string) => void;
   onUpdateDate: (id: string, buyDate: string, avgPrice: number) => Promise<void>;
+  onUpdatePrice: (id: string, avgPrice: number) => Promise<void>;
   onAddSell: (sell: Stock) => Promise<void>;
   onChangeSector: (ids: string[], sector: Sector) => Promise<void>;
 }
 
 export default function StockListSection({
-  market, account, stocks, quotes, onAddStock, onDeleteStock, onUpdateDate, onAddSell, onChangeSector,
+  market, account, stocks, quotes, onAddStock, onDeleteStock, onUpdateDate, onUpdatePrice, onAddSell, onChangeSector,
 }: Props) {
   const [showModal, setShowModal] = useState(false);
   const [selectedTicker, setSelectedTicker] = useState<string | null>(null);
@@ -270,6 +271,7 @@ export default function StockListSection({
           quote={quotes[selectedGroup.ticker] ?? null}
           onClose={() => setSelectedTicker(null)}
           onUpdateDate={onUpdateDate}
+          onUpdatePrice={onUpdatePrice}
           onAddSell={onAddSell}
         />
       )}

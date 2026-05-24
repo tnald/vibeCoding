@@ -18,7 +18,7 @@ export default function HomePage() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   const { accounts, loading: accountsLoading, addAccount, updateCash, deleteAccount } = useAccounts();
-  const { stocks: accountStocks, addStock, addSell, removeStock, changeBuyDate, changeGroupSector } = useStocks(selectedAccountId);
+  const { stocks: accountStocks, addStock, addSell, removeStock, changeBuyDate, changeAvgPrice, changeGroupSector } = useStocks(selectedAccountId);
   const { quotes, loading: quotesLoading } = useQuotes(accountStocks);
 
   const selectedAccount = accounts.find((a) => a.id === selectedAccountId) ?? null;
@@ -118,6 +118,7 @@ export default function HomePage() {
                 onAddStock={addStock}
                 onDeleteStock={removeStock}
                 onUpdateDate={changeBuyDate}
+                onUpdatePrice={changeAvgPrice}
                 onAddSell={addSell}
                 onChangeSector={changeGroupSector}
               />
@@ -131,6 +132,7 @@ export default function HomePage() {
                 onAddStock={addStock}
                 onDeleteStock={removeStock}
                 onUpdateDate={changeBuyDate}
+                onUpdatePrice={changeAvgPrice}
                 onAddSell={addSell}
                 onChangeSector={changeGroupSector}
               />

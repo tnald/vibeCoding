@@ -5,6 +5,8 @@ import { X, TrendingUp, TrendingDown, Calendar, Hash, DollarSign, Check, Loader2
 import { Stock, StockQuote } from "@/types";
 import SellStockModal from "./SellStockModal";
 
+type EditField = "date" | "price";
+
 interface Props {
   ticker: string;
   name: string;
@@ -13,14 +15,17 @@ interface Props {
   quote: StockQuote | null;
   onClose: () => void;
   onUpdateDate?: (id: string, buyDate: string, avgPrice: number) => Promise<void>;
+  onUpdatePrice?: (id: string, avgPrice: number) => Promise<void>;
   onAddSell?: (sell: Stock) => Promise<void>;
 }
 
 export default function StockTransactionModal({
-  ticker, name, market, transactions, quote, onClose, onUpdateDate, onAddSell,
+  ticker, name, market, transactions, quote, onClose, onUpdateDate, onUpdatePrice, onAddSell,
 }: Props) {
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [editField, setEditField] = useState<EditField>("date");
   const [editDate, setEditDate] = useState("");
+  const [editPrice, setEditPrice] = useState("");
   const [saving, setSaving] = useState(false);
   const [showSellModal, setShowSellModal] = useState(false);
 
@@ -33,9 +38,8 @@ export default function StockTransactionModal({
       ? `₩${Math.round(v).toLocaleString("ko-KR")}`
       : `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const buys = [...transactions].filter((t) => t.quantity > 0);
-  const sells = [...transactions].filter((t) => t.quantity < 0);
-
+  const buys = transactions.filter((t) => t.quantity > 0);
+  const sells = transactions.filter((t) => t.quantity < 0);
   const sorted = [...transactions].sort(
     (a, b) => new Date(a.buyDate).getTime() - new Date(b.buyDate).getTime()
   );
@@ -47,8 +51,8 @@ export default function StockTransactionModal({
   const avgCost = totalBuyQty > 0 ? totalCost / totalBuyQty : 0;
   const currentPrice = quote?.price ?? avgCost;
   const totalValue = currentPrice * netQty;
-  const totalProfit = totalValue - (avgCost * netQty);
-  const returnPct = avgCost > 0 ? (totalProfit / (avgCost * netQty)) * 100 : 0;
+  const totalProfit = totalValue - avgCost * netQty;
+  const returnPct = avgCost > 0 && netQty > 0 ? (totalProfit / (avgCost * netQty)) * 100 : 0;
   const isUp = totalProfit >= 0;
 
   const fmtDate = (d: string) => {
@@ -56,33 +60,33 @@ export default function StockTransactionModal({
     return `${dt.getFullYear()}.${String(dt.getMonth() + 1).padStart(2, "0")}.${String(dt.getDate()).padStart(2, "0")}`;
   };
 
-  const startEdit = (tx: Stock) => {
-    if (!onUpdateDate) return;
+  const startEdit = (tx: Stock, field: EditField) => {
+    if (field === "date" && !onUpdateDate) return;
+    if (field === "price" && !onUpdatePrice) return;
     setEditingId(tx.id);
-    setEditDate(tx.buyDate.slice(0, 10));
+    setEditField(field);
+    if (field === "date") setEditDate(tx.buyDate.slice(0, 10));
+    if (field === "price") setEditPrice(String(tx.avgPrice));
   };
 
   const confirmEdit = async (tx: Stock) => {
-    if (!onUpdateDate || !editDate) return;
     setSaving(true);
     try {
-      const today = new Date().toISOString().slice(0, 10);
-      const url = editDate === today
-        ? `/api/price?ticker=${ticker}&market=${market}`
-        : `/api/price?ticker=${ticker}&market=${market}&date=${editDate}`;
-      const res = await fetch(url);
-      const newPrice = res.ok ? (await res.json()).price : tx.avgPrice;
-      await onUpdateDate(tx.id, editDate, newPrice);
+      if (editField === "date" && onUpdateDate) {
+        await onUpdateDate(tx.id, editDate, tx.avgPrice);
+      } else if (editField === "price" && onUpdatePrice) {
+        const newPrice = parseFloat(editPrice);
+        if (!isNaN(newPrice) && newPrice > 0) {
+          await onUpdatePrice(tx.id, newPrice);
+        }
+      }
     } finally {
       setSaving(false);
       setEditingId(null);
     }
   };
 
-  const cancelEdit = () => {
-    setEditingId(null);
-    setEditDate("");
-  };
+  const cancelEdit = () => setEditingId(null);
 
   return (
     <>
@@ -156,11 +160,13 @@ export default function StockTransactionModal({
             </div>
           </div>
 
-          {/* 거래 내역 목록 */}
+          {/* 거래 내역 */}
           <div className="overflow-y-auto flex-1">
-            <div className="grid grid-cols-[1fr_1fr_1fr_1fr] gap-2 px-6 py-2.5 text-[10px] font-medium text-[var(--muted)] border-b border-[var(--border-subtle)] sticky top-0 bg-[var(--surface-elevated)]">
+            <div className="grid grid-cols-[1.2fr_1fr_0.8fr_1fr] gap-2 px-6 py-2.5
+              text-[10px] font-medium text-[var(--muted)] border-b border-[var(--border-subtle)]
+              sticky top-0 bg-[var(--surface-elevated)]">
               <span className="flex items-center gap-1"><Calendar size={9} />날짜</span>
-              <span className="text-right flex items-center justify-end gap-1"><DollarSign size={9} />단가</span>
+              <span className="flex items-center gap-1"><DollarSign size={9} />단가</span>
               <span className="text-right flex items-center justify-end gap-1"><Hash size={9} />수량</span>
               <span className="text-right">금액</span>
             </div>
@@ -175,21 +181,20 @@ export default function StockTransactionModal({
               return (
                 <div
                   key={tx.id}
-                  className={`grid grid-cols-[1fr_1fr_1fr_1fr] gap-2 px-6 py-3.5 items-center
+                  className={`grid grid-cols-[1.2fr_1fr_0.8fr_1fr] gap-2 px-6 py-3.5 items-center
                     border-b border-[var(--border-subtle)] last:border-0 transition-colors
-                    ${isSell ? "bg-blue-500/3 hover:bg-blue-500/5" : "hover:bg-[var(--background)]/40"}`}
+                    ${isSell ? "hover:bg-blue-500/5" : "hover:bg-[var(--background)]/40"}`}
                 >
-                  {/* 날짜 + 타입 */}
+                  {/* 날짜 */}
                   <div className="flex items-center gap-2">
                     <div className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0
                       ${isSell ? "bg-blue-500/10" : "bg-[var(--accent)]/10"}`}>
                       {isSell
                         ? <TrendingDown size={10} className="text-blue-400" />
-                        : <TrendingUp size={10} className="text-[var(--accent)]" />
-                      }
+                        : <TrendingUp size={10} className="text-[var(--accent)]" />}
                     </div>
                     <div className="min-w-0">
-                      {!isSell && isEditing ? (
+                      {!isSell && isEditing && editField === "date" ? (
                         <div className="flex items-center gap-1">
                           <input
                             type="date"
@@ -197,34 +202,28 @@ export default function StockTransactionModal({
                             onChange={(e) => setEditDate(e.target.value)}
                             max={new Date().toISOString().slice(0, 10)}
                             autoFocus
-                            className="w-[110px] bg-[var(--background)] border border-[var(--accent)]/50 rounded-lg
+                            className="w-[108px] bg-[var(--background)] border border-[var(--accent)]/50 rounded-lg
                               px-1.5 py-0.5 text-[11px] text-[var(--foreground)]
                               focus:outline-none focus:border-[var(--accent)] transition-colors"
                           />
-                          <button
-                            onClick={() => confirmEdit(tx)}
-                            disabled={saving}
+                          <button onClick={() => confirmEdit(tx)} disabled={saving}
                             className="w-5 h-5 flex items-center justify-center rounded-md
-                              bg-[var(--accent)]/15 text-[var(--accent)] hover:bg-[var(--accent)]/30 transition-colors"
-                          >
+                              bg-[var(--accent)]/15 text-[var(--accent)] hover:bg-[var(--accent)]/30 transition-colors">
                             {saving ? <Loader2 size={9} className="animate-spin" /> : <Check size={9} />}
                           </button>
-                          <button
-                            onClick={cancelEdit}
+                          <button onClick={cancelEdit}
                             className="w-5 h-5 flex items-center justify-center rounded-md
-                              text-[var(--muted)] hover:bg-[var(--border)] transition-colors"
-                          >
+                              text-[var(--muted)] hover:bg-[var(--border)] transition-colors">
                             <X size={9} />
                           </button>
                         </div>
                       ) : (
                         <button
-                          onClick={() => !isSell && startEdit(tx)}
+                          onClick={() => !isSell && startEdit(tx, "date")}
                           className={`text-[11px] font-medium text-left transition-colors
                             ${!isSell && onUpdateDate
                               ? "text-[var(--foreground)] hover:text-[var(--accent)] cursor-pointer underline-offset-2 hover:underline"
                               : "text-[var(--foreground)] cursor-default"}`}
-                          title={!isSell && onUpdateDate ? "클릭하여 날짜 수정" : undefined}
                         >
                           {fmtDate(tx.buyDate)}
                         </button>
@@ -235,22 +234,53 @@ export default function StockTransactionModal({
                     </div>
                   </div>
 
-                  {/* 단가 */}
-                  <p className={`text-sm text-right tabular-nums font-medium
-                    ${isSell ? "text-blue-400" : "text-[var(--foreground)]"}`}>
-                    {fmt(tx.avgPrice)}
-                  </p>
+                  {/* 단가 (클릭 시 수정) */}
+                  <div>
+                    {!isSell && isEditing && editField === "price" ? (
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          value={editPrice}
+                          onChange={(e) => setEditPrice(e.target.value)}
+                          min="0"
+                          step="any"
+                          autoFocus
+                          className="w-[90px] bg-[var(--background)] border border-[var(--accent)]/50 rounded-lg
+                            px-1.5 py-0.5 text-[11px] text-[var(--foreground)]
+                            focus:outline-none focus:border-[var(--accent)] transition-colors"
+                        />
+                        <button onClick={() => confirmEdit(tx)} disabled={saving}
+                          className="w-5 h-5 flex items-center justify-center rounded-md
+                            bg-[var(--accent)]/15 text-[var(--accent)] hover:bg-[var(--accent)]/30 transition-colors">
+                          {saving ? <Loader2 size={9} className="animate-spin" /> : <Check size={9} />}
+                        </button>
+                        <button onClick={cancelEdit}
+                          className="w-5 h-5 flex items-center justify-center rounded-md
+                            text-[var(--muted)] hover:bg-[var(--border)] transition-colors">
+                          <X size={9} />
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={() => !isSell && startEdit(tx, "price")}
+                        className={`text-sm tabular-nums font-medium transition-colors text-left
+                          ${!isSell && onUpdatePrice
+                            ? "text-[var(--foreground)] hover:text-[var(--accent)] cursor-pointer underline-offset-2 hover:underline"
+                            : isSell ? "text-blue-400" : "text-[var(--foreground)] cursor-default"}`}
+                      >
+                        {fmt(tx.avgPrice)}
+                      </button>
+                    )}
+                  </div>
 
                   {/* 수량 */}
-                  <p className={`text-sm text-right tabular-nums
-                    ${isSell ? "text-blue-400" : "text-[var(--foreground)]"}`}>
+                  <p className={`text-sm text-right tabular-nums ${isSell ? "text-blue-400" : "text-[var(--foreground)]"}`}>
                     {isSell ? "-" : "+"}{displayQty.toLocaleString()}
                     <span className="text-[10px] text-[var(--muted)] ml-0.5">주</span>
                   </p>
 
                   {/* 금액 */}
-                  <p className={`text-sm text-right tabular-nums
-                    ${isSell ? "text-blue-400/70" : "text-[var(--muted)]"}`}>
+                  <p className={`text-sm text-right tabular-nums ${isSell ? "text-blue-400/70" : "text-[var(--muted)]"}`}>
                     {fmt(amount)}
                   </p>
                 </div>

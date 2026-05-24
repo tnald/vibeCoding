@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { X, Loader2, TrendingDown, AlertCircle, RefreshCw } from "lucide-react";
+import { useState } from "react";
+import { X, Loader2, TrendingDown, AlertCircle } from "lucide-react";
 import { Stock, Sector } from "@/types";
 
 interface Props {
@@ -19,12 +19,8 @@ interface Props {
 export default function SellStockModal({
   ticker, name, market, sector, currency, accountId, maxQuantity, onClose, onSell,
 }: Props) {
-  const today = new Date().toISOString().slice(0, 10);
   const [quantity, setQuantity] = useState("");
-  const [date, setDate] = useState(today);
   const [price, setPrice] = useState("");
-  const [fetchingPrice, setFetchingPrice] = useState(false);
-  const [priceError, setPriceError] = useState("");
   const [saving, setSaving] = useState(false);
 
   const fmt = (v: number) =>
@@ -32,34 +28,14 @@ export default function SellStockModal({
       ? `₩${Math.round(v).toLocaleString("ko-KR")}`
       : `$${v.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
-  const fetchPrice = useCallback(async (d: string) => {
-    setFetchingPrice(true);
-    setPriceError("");
-    try {
-      const isToday = d === today;
-      const url = isToday
-        ? `/api/price?ticker=${ticker}&market=${market}`
-        : `/api/price?ticker=${ticker}&market=${market}&date=${d}`;
-      const res = await fetch(url);
-      if (!res.ok) throw new Error();
-      const data = await res.json();
-      setPrice(String(data.price));
-    } catch {
-      setPriceError("가격 조회 실패. 직접 입력하세요.");
-    } finally {
-      setFetchingPrice(false);
-    }
-  }, [ticker, market, today]);
-
-  useEffect(() => {
-    fetchPrice(date);
-  }, [date, fetchPrice]);
+  const qty = parseInt(quantity) || 0;
+  const pr = parseFloat(price) || 0;
+  const totalValue = qty * pr;
+  const isQtyValid = qty > 0 && qty <= maxQuantity;
+  const canConfirm = isQtyValid && pr > 0 && !saving;
 
   const handleSell = async () => {
-    const qty = parseInt(quantity);
-    const pr = parseFloat(price);
-    if (!qty || qty <= 0 || qty > maxQuantity || !pr || pr <= 0) return;
-
+    if (!canConfirm) return;
     setSaving(true);
     try {
       const sell: Stock = {
@@ -72,7 +48,7 @@ export default function SellStockModal({
         quantity: -qty,
         avgPrice: pr,
         currency,
-        buyDate: date,
+        buyDate: new Date().toISOString().split("T")[0],
       };
       await onSell(sell);
       onClose();
@@ -80,12 +56,6 @@ export default function SellStockModal({
       setSaving(false);
     }
   };
-
-  const qty = parseInt(quantity) || 0;
-  const pr = parseFloat(price) || 0;
-  const totalValue = qty * pr;
-  const isQtyValid = qty > 0 && qty <= maxQuantity;
-  const canConfirm = isQtyValid && pr > 0 && !fetchingPrice && !saving;
 
   return (
     <div
@@ -114,7 +84,7 @@ export default function SellStockModal({
         </div>
 
         <div className="p-5 flex flex-col gap-4">
-          {/* 보유 수량 표시 */}
+          {/* 보유 수량 */}
           <div className="bg-[var(--background)] rounded-xl px-4 py-2.5 flex items-center justify-between">
             <p className="text-[11px] text-[var(--muted)]">현재 보유량</p>
             <p className="text-sm font-bold text-[var(--foreground)] tabular-nums">
@@ -124,9 +94,7 @@ export default function SellStockModal({
 
           {/* 수량 */}
           <div>
-            <label className="text-[11px] font-medium text-[var(--muted)] mb-1.5 block">
-              매도 수량
-            </label>
+            <label className="text-[11px] font-medium text-[var(--muted)] mb-1.5 block">매도 수량</label>
             <input
               type="number"
               value={quantity}
@@ -146,52 +114,27 @@ export default function SellStockModal({
             )}
           </div>
 
-          {/* 날짜 */}
-          <div>
-            <label className="text-[11px] font-medium text-[var(--muted)] mb-1.5 block">매도 날짜</label>
-            <input
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-              max={today}
-              className="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl
-                px-3 py-2.5 text-sm text-[var(--foreground)]
-                focus:outline-none focus:border-[var(--accent)]/60 transition-colors"
-            />
-          </div>
-
           {/* 매도가 */}
           <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[11px] font-medium text-[var(--muted)] flex items-center gap-1.5">
-                매도가
-                {fetchingPrice && <Loader2 size={9} className="animate-spin text-[var(--accent)]" />}
-              </label>
-              <button
-                onClick={() => fetchPrice(date)}
-                disabled={fetchingPrice}
-                className="text-[10px] text-[var(--accent)] hover:underline flex items-center gap-0.5 disabled:opacity-40"
-              >
-                <RefreshCw size={9} /> 재조회
-              </button>
-            </div>
+            <label className="text-[11px] font-medium text-[var(--muted)] mb-1.5 block">
+              매도가 {currency === "KRW" ? "(원)" : "($)"}
+            </label>
             <div className="relative">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs text-[var(--muted)]">
+              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-[var(--muted)]">
                 {currency === "KRW" ? "₩" : "$"}
               </span>
               <input
                 type="number"
                 value={price}
                 onChange={(e) => setPrice(e.target.value)}
-                placeholder="자동 조회됩니다"
+                placeholder={currency === "KRW" ? "70000" : "150.00"}
+                min="0"
+                step="any"
                 className="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl
                   pl-7 pr-3 py-2.5 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)]
                   focus:outline-none focus:border-[var(--accent)]/60 transition-colors"
               />
             </div>
-            {priceError && (
-              <p className="text-[11px] text-[var(--muted)] mt-1">{priceError}</p>
-            )}
           </div>
 
           {/* 예상 매도금액 */}
