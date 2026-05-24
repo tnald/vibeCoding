@@ -7,6 +7,7 @@ import {
   insertStock,
   deleteStock,
   updateStockSector,
+  updateStockQuantity,
   updateStockAvgPrice,
   updateStockBuyDateAndPrice,
 } from "@/lib/supabase/queries";
@@ -55,6 +56,11 @@ export function useStocks(accountId: string | null) {
     setStocks((prev) => prev.map((s) => (ids.includes(s.id) ? { ...s, sector } : s)));
   };
 
+  const changeQuantity = async (id: string, quantity: number) => {
+    await updateStockQuantity(id, quantity);
+    setStocks((prev) => prev.map((s) => (s.id === id ? { ...s, quantity } : s)));
+  };
+
   const changeAvgPrice = async (id: string, avgPrice: number) => {
     await updateStockAvgPrice(id, avgPrice);
     setStocks((prev) => prev.map((s) => (s.id === id ? { ...s, avgPrice } : s)));
@@ -65,5 +71,5 @@ export function useStocks(accountId: string | null) {
     setStocks((prev) => prev.map((s) => (s.id === id ? { ...s, buyDate, avgPrice } : s)));
   };
 
-  return { stocks, loading, addStock, addSell, removeStock, changeSector, changeGroupSector, changeBuyDate, changeAvgPrice };
+  return { stocks, loading, addStock, addSell, removeStock, changeSector, changeGroupSector, changeBuyDate, changeAvgPrice, changeQuantity };
 }
