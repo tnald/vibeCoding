@@ -5,6 +5,7 @@ import { NextRequest, NextResponse } from "next/server";
 async function fetchNaverCurrent(
   ticker: string
 ): Promise<{ price: number; currency: string; name: string } | null> {
+  // 1차: 모바일 API
   try {
     const res = await fetch(
       `https://m.stock.naver.com/api/stock/${ticker}/basic`,
@@ -13,15 +14,55 @@ async function fetchNaverCurrent(
         cache: "no-store",
       }
     );
-    if (!res.ok) return null;
-    const json = await res.json();
-    const priceStr: string = json.closePrice ?? json.stockPrice ?? "";
-    const price = parseFloat(priceStr.replace(/,/g, ""));
-    if (!price) return null;
-    return { price, currency: "KRW", name: json.stockName ?? ticker };
-  } catch {
-    return null;
-  }
+    if (res.ok) {
+      const json = await res.json();
+      const priceStr: string = json.closePrice ?? json.stockPrice ?? json.currentPrice ?? "";
+      const price = parseFloat(priceStr.replace(/,/g, ""));
+      if (price) return { price, currency: "KRW", name: json.stockName ?? json.name ?? ticker };
+    }
+  } catch { /* fallback */ }
+
+  // 2차: polling API
+  try {
+    const res = await fetch(
+      `https://polling.finance.naver.com/api/realtime/domestic/stock/${ticker}`,
+      {
+        headers: { "User-Agent": "Mozilla/5.0", Referer: "https://finance.naver.com" },
+        cache: "no-store",
+      }
+    );
+    if (res.ok) {
+      const json = await res.json();
+      const d = json?.datas?.[0];
+      if (d) {
+        const priceStr: string = d.closePrice ?? d.currentPrice ?? "";
+        const price = parseFloat(priceStr.replace(/,/g, ""));
+        if (price) return { price, currency: "KRW", name: d.stockName ?? d.name ?? ticker };
+      }
+    }
+  } catch { /* fallback */ }
+
+  // 3차: PC 시세 JSON API
+  try {
+    const res = await fetch(
+      `https://finance.naver.com/item/sise.naver?code=${ticker}`,
+      {
+        headers: { "User-Agent": "Mozilla/5.0", Referer: "https://finance.naver.com" },
+        cache: "no-store",
+      }
+    );
+    if (res.ok) {
+      const text = await res.text();
+      const priceMatch = text.match(/"closePrice"\s*:\s*"([\d,]+)"/) ??
+                         text.match(/"currentPrice"\s*:\s*"([\d,]+)"/);
+      if (priceMatch) {
+        const price = parseFloat(priceMatch[1].replace(/,/g, ""));
+        if (price) return { price, currency: "KRW", name: ticker };
+      }
+    }
+  } catch { /* all fallbacks failed */ }
+
+  return null;
 }
 
 async function fetchNaverHistorical(
@@ -74,60 +115,73 @@ async function fetchNaverHistorical(
 
 // ── Yahoo Finance (미국 주식) ────────────────────────────────
 
+const YAHOO_HEADERS = {
+  "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+  Accept: "application/json, text/plain, */*",
+  "Accept-Language": "en-US,en;q=0.9",
+};
+
+async function fetchYahooChart(
+  host: string,
+  symbol: string,
+  date?: string
+): Promise<{ price: number; currency: string; name: string } | null> {
+  let url: string;
+  if (date) {
+    const d = new Date(date + "T00:00:00Z");
+    const period1 = Math.floor(d.getTime() / 1000) - 86400 * 5;
+    const period2 = Math.floor(d.getTime() / 1000) + 86400 * 5;
+    url = `https://${host}/v8/finance/chart/${symbol}?interval=1d&period1=${period1}&period2=${period2}`;
+  } else {
+    url = `https://${host}/v8/finance/chart/${symbol}?interval=1d&range=5d`;
+  }
+
+  const res = await fetch(url, { headers: YAHOO_HEADERS, cache: "no-store" });
+  if (!res.ok) return null;
+
+  const json = await res.json();
+  const result = json?.chart?.result?.[0];
+  if (!result) return null;
+
+  const meta = result.meta;
+  const currency: string = meta.currency ?? "USD";
+  const name: string = meta.longName ?? meta.shortName ?? symbol;
+
+  if (date) {
+    const timestamps: number[] = result.timestamp ?? [];
+    const closes: number[] = result.indicators?.quote?.[0]?.close ?? [];
+    const targetTs = new Date(date + "T00:00:00Z").getTime() / 1000;
+    let bestPrice: number | null = null;
+    let bestDiff = Infinity;
+    for (let i = 0; i < timestamps.length; i++) {
+      const c = closes[i];
+      if (c == null || c <= 0) continue;
+      const diff = Math.abs(timestamps[i] - targetTs);
+      if (diff < bestDiff) { bestDiff = diff; bestPrice = c; }
+    }
+    if (!bestPrice) return null;
+    return { price: bestPrice, currency, name };
+  } else {
+    const price: number = meta.regularMarketPrice ?? meta.chartPreviousClose;
+    if (!price) return null;
+    return { price, currency, name };
+  }
+}
+
 async function fetchYahoo(
   symbol: string,
   date?: string
 ): Promise<{ price: number; currency: string; name: string } | null> {
-  try {
-    let url: string;
-    if (date) {
-      const d = new Date(date + "T00:00:00Z");
-      const period1 = Math.floor(d.getTime() / 1000) - 86400 * 4;
-      const period2 = Math.floor(d.getTime() / 1000) + 86400 * 4;
-      url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&period1=${period1}&period2=${period2}`;
-    } else {
-      url = `https://query1.finance.yahoo.com/v8/finance/chart/${symbol}?interval=1d&range=5d`;
+  // query1 → query2 순서로 fallback
+  for (const host of ["query1.finance.yahoo.com", "query2.finance.yahoo.com"]) {
+    try {
+      const result = await fetchYahooChart(host, symbol, date);
+      if (result) return result;
+    } catch {
+      // 다음 host 시도
     }
-
-    const res = await fetch(url, {
-      headers: {
-        "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36",
-        Accept: "application/json",
-      },
-      cache: "no-store",
-    });
-    if (!res.ok) return null;
-
-    const json = await res.json();
-    const result = json?.chart?.result?.[0];
-    if (!result) return null;
-
-    const meta = result.meta;
-    const currency: string = meta.currency ?? "USD";
-    const name: string = meta.longName ?? meta.shortName ?? symbol;
-
-    if (date) {
-      const timestamps: number[] = result.timestamp ?? [];
-      const closes: number[] = result.indicators?.quote?.[0]?.close ?? [];
-      const targetTs = new Date(date + "T00:00:00Z").getTime() / 1000;
-      let bestPrice: number | null = null;
-      let bestDiff = Infinity;
-      for (let i = 0; i < timestamps.length; i++) {
-        const c = closes[i];
-        if (c == null || c <= 0) continue;
-        const diff = Math.abs(timestamps[i] - targetTs);
-        if (diff < bestDiff) { bestDiff = diff; bestPrice = c; }
-      }
-      if (!bestPrice) return null;
-      return { price: bestPrice, currency, name };
-    } else {
-      const price: number = meta.regularMarketPrice ?? meta.chartPreviousClose;
-      if (!price) return null;
-      return { price, currency, name };
-    }
-  } catch {
-    return null;
   }
+  return null;
 }
 
 // ── 라우트 핸들러 ────────────────────────────────────────────

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { X, TrendingUp, TrendingDown, Calendar, Hash, DollarSign, Check, Loader2 } from "lucide-react";
+import { X, TrendingUp, TrendingDown, Calendar, Hash, DollarSign, Check, Loader2, Pencil } from "lucide-react";
 import { Stock, StockQuote } from "@/types";
 import SellStockModal from "./SellStockModal";
 
@@ -227,15 +227,20 @@ export default function StockTransactionModal({
                           </button>
                         </div>
                       ) : (
-                        <button
-                          onClick={() => !isSell && startEdit(tx, "date")}
-                          className={`text-[11px] font-medium text-left transition-colors
-                            ${!isSell && onUpdateDate
-                              ? "text-[var(--foreground)] hover:text-[var(--accent)] cursor-pointer underline-offset-2 hover:underline"
-                              : "text-[var(--foreground)] cursor-default"}`}
-                        >
-                          {fmtDate(tx.buyDate)}
-                        </button>
+                        <div className="flex items-center gap-1 group/date">
+                          <span className="text-[11px] font-medium text-[var(--foreground)]">
+                            {fmtDate(tx.buyDate)}
+                          </span>
+                          {!isSell && onUpdateDate && (
+                            <button
+                              onClick={() => startEdit(tx, "date")}
+                              className="w-4 h-4 flex items-center justify-center rounded opacity-0 group-hover/date:opacity-100
+                                text-[var(--muted)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-all"
+                            >
+                              <Pencil size={9} />
+                            </button>
+                          )}
+                        </div>
                       )}
                       <p className={`text-[9px] mt-0.5 ${isSell ? "text-blue-400/70" : "text-[var(--muted)]"}`}>
                         {isSell ? "매도" : `매수 #${buyIdx}`}
@@ -243,7 +248,7 @@ export default function StockTransactionModal({
                     </div>
                   </div>
 
-                  {/* 단가 (클릭 시 수정) */}
+                  {/* 단가 */}
                   <div>
                     {!isSell && isEditing && editField === "price" ? (
                       <div className="flex items-center gap-1">
@@ -270,15 +275,20 @@ export default function StockTransactionModal({
                         </button>
                       </div>
                     ) : (
-                      <button
-                        onClick={() => !isSell && startEdit(tx, "price")}
-                        className={`text-sm tabular-nums font-medium transition-colors text-left
-                          ${!isSell && onUpdatePrice
-                            ? "text-[var(--foreground)] hover:text-[var(--accent)] cursor-pointer underline-offset-2 hover:underline"
-                            : isSell ? "text-blue-400" : "text-[var(--foreground)] cursor-default"}`}
-                      >
-                        {fmt(tx.avgPrice)}
-                      </button>
+                      <div className="flex items-center gap-1 group/price">
+                        <span className={`text-sm tabular-nums font-medium ${isSell ? "text-blue-400" : "text-[var(--foreground)]"}`}>
+                          {fmt(tx.avgPrice)}
+                        </span>
+                        {!isSell && onUpdatePrice && (
+                          <button
+                            onClick={() => startEdit(tx, "price")}
+                            className="w-4 h-4 flex items-center justify-center rounded opacity-0 group-hover/price:opacity-100
+                              text-[var(--muted)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-all"
+                          >
+                            <Pencil size={9} />
+                          </button>
+                        )}
+                      </div>
                     )}
                   </div>
 
@@ -309,17 +319,26 @@ export default function StockTransactionModal({
                         </button>
                       </div>
                     ) : (
-                      <button
-                        onClick={() => startEdit(tx, "quantity")}
-                        className={`text-sm tabular-nums transition-colors
-                          ${onUpdateQuantity
-                            ? "hover:text-[var(--accent)] cursor-pointer underline-offset-2 hover:underline"
-                            : "cursor-default"}
-                          ${isSell ? "text-blue-400" : "text-[var(--foreground)]"}`}
-                      >
-                        {isSell ? "-" : "+"}{displayQty.toLocaleString()}
-                        <span className="text-[10px] text-[var(--muted)] ml-0.5">주</span>
-                      </button>
+                      <div className="flex items-center justify-end gap-1 group/qty">
+                        {onUpdateQuantity && (
+                          <button
+                            onClick={() => startEdit(tx, "quantity")}
+                            className="w-4 h-4 flex items-center justify-center rounded opacity-0 group-hover/qty:opacity-100
+                              text-[var(--muted)] hover:text-[var(--accent)] hover:bg-[var(--accent)]/10 transition-all"
+                          >
+                            <Pencil size={9} />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => onUpdateQuantity && startEdit(tx, "quantity")}
+                          className={`text-sm tabular-nums transition-colors
+                            ${onUpdateQuantity ? "cursor-pointer" : "cursor-default"}
+                            ${isSell ? "text-blue-400" : "text-[var(--foreground)]"}`}
+                        >
+                          {isSell ? "-" : "+"}{displayQty.toLocaleString()}
+                          <span className="text-[10px] text-[var(--muted)] ml-0.5">주</span>
+                        </button>
+                      </div>
                     )}
                   </div>
 

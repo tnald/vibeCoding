@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { X, Search, ChevronDown } from "lucide-react";
+import { X, Search, ChevronDown, Loader2 } from "lucide-react";
 import { Stock, Sector } from "@/types";
 import { detectMarket, lookupTicker } from "@/lib/finance/tickerUtils";
 
@@ -28,18 +28,39 @@ export default function AddStockModal({ accountId, onClose, onAdd }: Props) {
   const [sector, setSector] = useState<Sector>("기타");
   const [quantity, setQuantity] = useState("");
   const [price, setPrice] = useState("");
+  const [fetchingName, setFetchingName] = useState(false);
 
   const detectedMarket = ticker.trim() ? detectMarket(ticker) : null;
   const currency = detectedMarket === "KR" ? "KRW" : "USD";
 
   // 종목 코드 입력 시 이름/섹터 자동완성
   useEffect(() => {
-    if (!ticker.trim()) return;
+    if (!ticker.trim()) { setName(""); return; }
+
+    // 1순위: 로컬 하드코딩 목록 (즉시)
     const info = lookupTicker(ticker);
     if (info) {
       setName(info.name);
       setSector(info.sector);
+      return;
     }
+
+    // 2순위: API 조회 (600ms debounce)
+    const market = detectMarket(ticker);
+    const timer = setTimeout(async () => {
+      setFetchingName(true);
+      try {
+        const res = await fetch(`/api/price?ticker=${encodeURIComponent(ticker)}&market=${market}`);
+        if (res.ok) {
+          const data = await res.json();
+          if (data.name) setName(data.name);
+        }
+      } catch { /* 무시 */ } finally {
+        setFetchingName(false);
+      }
+    }, 600);
+
+    return () => clearTimeout(timer);
   }, [ticker]);
 
   const parsedPrice = parseFloat(price.replace(/,/g, ""));
@@ -124,12 +145,15 @@ export default function AddStockModal({ accountId, onClose, onAdd }: Props) {
 
           {/* ② 종목명 */}
           <div>
-            <label className="text-xs font-medium text-[var(--muted)] mb-1.5 block">종목명</label>
+            <label className="text-xs font-medium text-[var(--muted)] mb-1.5 flex items-center gap-1.5">
+              종목명
+              {fetchingName && <Loader2 size={10} className="animate-spin text-[var(--accent)]" />}
+            </label>
             <input
               type="text"
               value={name}
               onChange={(e) => setName(e.target.value)}
-              placeholder="직접 입력하세요"
+              placeholder={fetchingName ? "조회 중..." : "직접 입력 또는 자동완성"}
               className="w-full bg-[var(--background)] border border-[var(--border)] rounded-xl px-3.5 py-2.5
                 text-sm text-[var(--foreground)] placeholder:text-[var(--muted)]
                 focus:outline-none focus:border-[var(--accent)]/60 transition-colors"
